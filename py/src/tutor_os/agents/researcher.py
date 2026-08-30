@@ -8,6 +8,7 @@ from tutor_os.config.learner_profile import personalize
 from tutor_os.model import get_model
 from tutor_os.prompts.icm import CORE_INVARIANTS
 from tutor_os.tools.research import arxiv_search, web_search
+from tutor_os.tools.working_memory import inject_working_memory, update_working_memory
 from tutor_os.tools.workspace import workspace_read, workspace_write
 
 _INSTRUCTIONS = personalize(f"""Você é o Technical Researcher do Tutor OS.
@@ -44,11 +45,13 @@ TOOL_FUNCTIONS = [
     arxiv_search,
     workspace_read,
     workspace_write,
+    update_working_memory,
 ]
 
 researcher_agent = Agent(
     get_model(),
     name="researcher",
     instructions=_INSTRUCTIONS,
-    tools=[Tool(fn) for fn in TOOL_FUNCTIONS],
+    tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
+researcher_agent.instructions(inject_working_memory)

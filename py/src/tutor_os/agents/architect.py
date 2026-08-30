@@ -20,6 +20,7 @@ from tutor_os.tools.living_library import library_index
 from tutor_os.tools.os_files import os_read, os_write
 from tutor_os.tools.research import arxiv_search
 from tutor_os.tools.state import state_read
+from tutor_os.tools.working_memory import inject_working_memory, update_working_memory
 from tutor_os.tools.workspace import workspace_archive, workspace_delete
 
 _INSTRUCTIONS = personalize(
@@ -64,6 +65,7 @@ TOOL_FUNCTIONS = [
     workspace_delete,
     workspace_archive,
     arcs_snapshot_and_reset,
+    update_working_memory,
 ]
 
 architect_agent = Agent(
@@ -72,3 +74,4 @@ architect_agent = Agent(
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
+architect_agent.instructions(inject_working_memory)

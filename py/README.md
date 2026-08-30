@@ -1,17 +1,24 @@
 # tutor-os-py
 
-pydantic-ai 2.0 port of `src/mastra/**` + `src/server.ts`, built with `uv`.
+pydantic-ai 2.0 port of the (now retired) `src/mastra/**` + `src/server.ts`
+Node/Mastra backend, built with `uv`. This is the only backend — Node has
+been decommissioned.
 
 ## Run
 
 ```bash
 cd py
-uv run uvicorn tutor_os.server:app --port 4116 --reload
+uv run uvicorn tutor_os.server:app --port 4115 --reload
 ```
 
-Serves the existing `ui/` frontend unmodified against the same HTTP/SSE
-contract as the Node backend (which runs on :4115) — env vars
-`OPENCODE_API_KEY` / `OPENCODE_BASE_URL` (or `OPENAI_*`) work the same way.
+Serves the existing `ui/` frontend unmodified over the same HTTP/SSE
+contract the Node backend used to — env vars `OPENCODE_API_KEY` /
+`OPENCODE_BASE_URL` (or `OPENAI_*`) work the same way.
+
+Alternatively, `uv run tutor-os-py` runs the packaged entry point
+(`tutor_os.server:main`), which reads the port from the `PORT` env var
+(defaults to `4115` if unset) — e.g. `PORT=4117 uv run tutor-os-py`. The
+`uvicorn ... --reload` form above always uses its own `--port` flag instead.
 
 Set `TUTOR_OS_ROOT` to point at the repo root if running from somewhere other
 than the default relative location (`py/`'s parent).

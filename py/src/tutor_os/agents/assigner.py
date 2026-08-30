@@ -13,6 +13,7 @@ from tutor_os.prompts.icm import (
 )
 from tutor_os.tools.arcs import arcs_list
 from tutor_os.tools.assignment import assignment_generate, assignment_read
+from tutor_os.tools.working_memory import inject_working_memory, update_working_memory
 from tutor_os.tools.workspace import workspace_read, workspace_write
 
 _INSTRUCTIONS = personalize(f"""Você é o Assigner (Assignment Engine) do Tutor OS.
@@ -42,11 +43,13 @@ TOOL_FUNCTIONS = [
     arcs_list,
     workspace_read,
     workspace_write,
+    update_working_memory,
 ]
 
 assigner_agent = Agent(
     get_model(),
     name="assigner",
     instructions=_INSTRUCTIONS,
-    tools=[Tool(fn) for fn in TOOL_FUNCTIONS],
+    tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
+assigner_agent.instructions(inject_working_memory)

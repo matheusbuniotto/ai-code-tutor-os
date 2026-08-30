@@ -14,6 +14,7 @@ import contextlib
 import json
 import logging
 import mimetypes
+import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -41,10 +42,22 @@ from tutor_os.agents.architect import TOOL_FUNCTIONS as ARCHITECT_TOOL_FUNCTIONS
 from tutor_os.agents.architect import architect_agent
 from tutor_os.agents.assigner import TOOL_FUNCTIONS as ASSIGNER_TOOL_FUNCTIONS
 from tutor_os.agents.assigner import assigner_agent
+from tutor_os.agents.breaker import TOOL_FUNCTIONS as BREAKER_TOOL_FUNCTIONS
+from tutor_os.agents.breaker import breaker_agent
+from tutor_os.agents.challenger import TOOL_FUNCTIONS as CHALLENGER_TOOL_FUNCTIONS
+from tutor_os.agents.challenger import challenger_agent
 from tutor_os.agents.pair import TOOL_FUNCTIONS as PAIR_TOOL_FUNCTIONS
 from tutor_os.agents.pair import pair_agent
+from tutor_os.agents.planner import TOOL_FUNCTIONS as PLANNER_TOOL_FUNCTIONS
+from tutor_os.agents.planner import planner_agent
 from tutor_os.agents.researcher import TOOL_FUNCTIONS as RESEARCHER_TOOL_FUNCTIONS
 from tutor_os.agents.researcher import researcher_agent
+from tutor_os.agents.reviewer import TOOL_FUNCTIONS as REVIEWER_TOOL_FUNCTIONS
+from tutor_os.agents.reviewer import reviewer_agent
+from tutor_os.agents.scaffolder import TOOL_FUNCTIONS as SCAFFOLDER_TOOL_FUNCTIONS
+from tutor_os.agents.scaffolder import scaffolder_agent
+from tutor_os.agents.teacher import TOOL_FUNCTIONS as TEACHER_TOOL_FUNCTIONS
+from tutor_os.agents.teacher import teacher_agent
 from tutor_os.agents.tutor import TOOL_FUNCTIONS as TUTOR_TOOL_FUNCTIONS
 from tutor_os.agents.tutor import tutor_agent
 from tutor_os.config.learner_profile import read_learner_profile, write_learner_profile
@@ -72,6 +85,7 @@ from tutor_os.tools.os_files import os_read
 from tutor_os.tools.page_index import paper_dissect, read_dissected_papers
 from tutor_os.tools.rescue import rescue_diagnose
 from tutor_os.tools.research import arxiv_search, web_search
+from tutor_os.tools.session import session_advance, session_start
 from tutor_os.tools.state import state_read
 from tutor_os.tools.workspace import (
     workspace_archive,
@@ -91,6 +105,12 @@ AGENTS = {
     "researcher": researcher_agent,
     "pair": pair_agent,
     "architect": architect_agent,
+    "challenger": challenger_agent,
+    "reviewer": reviewer_agent,
+    "teacher": teacher_agent,
+    "planner": planner_agent,
+    "scaffolder": scaffolder_agent,
+    "breaker": breaker_agent,
 }
 _AGENT_TOOL_FUNCTIONS = {
     "tutor": TUTOR_TOOL_FUNCTIONS,
@@ -98,6 +118,12 @@ _AGENT_TOOL_FUNCTIONS = {
     "researcher": RESEARCHER_TOOL_FUNCTIONS,
     "pair": PAIR_TOOL_FUNCTIONS,
     "architect": ARCHITECT_TOOL_FUNCTIONS,
+    "challenger": CHALLENGER_TOOL_FUNCTIONS,
+    "reviewer": REVIEWER_TOOL_FUNCTIONS,
+    "teacher": TEACHER_TOOL_FUNCTIONS,
+    "planner": PLANNER_TOOL_FUNCTIONS,
+    "scaffolder": SCAFFOLDER_TOOL_FUNCTIONS,
+    "breaker": BREAKER_TOOL_FUNCTIONS,
 }
 _AUTO_COMPACT_KEEP_LAST = 16
 
@@ -1120,6 +1146,41 @@ async def api_arc_delete(request: Request) -> Any:
 
 
 # ---------------------------------------------------------------------------
+# 10. Session workflow (Inverted Pyramid phase gates, port of
+#     src/mastra/workflows/session.ts — no HTTP caller existed in TS, this
+#     is a new contract, see py/NEXT-PHASES.md for rationale)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/session/start")
+async def api_session_start(request: Request) -> Any:
+    try:
+        payload = await request.json()
+        return session_start(
+            payload.get("projectSlug"),
+            payload.get("title"),
+            payload.get("objective"),
+            payload.get("stack"),
+        )
+    except Exception as err:
+        return JSONResponse({"error": str(err)}, status_code=500)
+
+
+@app.post("/api/session/advance")
+async def api_session_advance(request: Request) -> Any:
+    try:
+        payload = await request.json()
+        return session_advance(
+            payload.get("projectSlug"),
+            payload.get("phase"),
+            bool(payload.get("passed")),
+            payload.get("note"),
+        )
+    except Exception as err:
+        return JSONResponse({"error": str(err)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
 # 7. Static UI (SPA fallback, mirrors server.ts's file server)
 # ---------------------------------------------------------------------------
 
@@ -1136,4 +1197,5 @@ async def static_ui(full_path: str) -> FileResponse:
 def main() -> None:
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=4116)
+    port = int(os.environ.get("PORT", "4115"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

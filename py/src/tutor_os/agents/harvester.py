@@ -12,6 +12,7 @@ from tutor_os.tools.living_library import library_index, library_save_note
 from tutor_os.tools.memory_audit import evidence_list, evidence_record
 from tutor_os.tools.os_files import os_read, os_write
 from tutor_os.tools.state import state_update
+from tutor_os.tools.working_memory import inject_working_memory, update_working_memory
 from tutor_os.tools.workspace import phase_set, workspace_write
 
 _INSTRUCTIONS = personalize(
@@ -48,6 +49,7 @@ TOOL_FUNCTIONS = [
     library_save_note,
     os_read,
     os_write,
+    update_working_memory,
 ]
 
 harvester_agent = Agent(
@@ -56,3 +58,4 @@ harvester_agent = Agent(
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
+harvester_agent.instructions(inject_working_memory)

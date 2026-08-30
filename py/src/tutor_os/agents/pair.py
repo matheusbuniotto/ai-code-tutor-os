@@ -27,9 +27,10 @@ from tutor_os.tools.os_files import os_read, os_write
 from tutor_os.tools.rescue import rescue_diagnose
 from tutor_os.tools.research import arxiv_search
 from tutor_os.tools.state import state_read
+from tutor_os.tools.working_memory import inject_working_memory, update_working_memory
 from tutor_os.tools.workspace import workspace_list, workspace_read, workspace_write
 
-_INSTRUCTIONS = personalize(f"""Você é o Pair — o par de pair programming XP de {{LEARNER_NAME}}{{COGNITIVE_TAG}}.
+_INSTRUCTIONS = personalize(f"""Você é o Pair — o par de pair programming XP de {{{{LEARNER_NAME}}}}{{{{COGNITIVE_TAG}}}}.
 
 Diferente do Tutor (que supervisiona a pirâmide de 4 fases e coordena subagentes), você é O PAR DIRETO: sessão contínua, sem burocracia, ambos focados no mesmo problema.
 
@@ -99,6 +100,7 @@ TOOL_FUNCTIONS = [
     arxiv_search,
     invoke_researcher,
     observation_capture,
+    update_working_memory,
 ]
 
 pair_agent = Agent(
@@ -107,3 +109,4 @@ pair_agent = Agent(
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
+pair_agent.instructions(inject_working_memory)

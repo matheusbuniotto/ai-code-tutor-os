@@ -59,6 +59,7 @@ from tutor_os.tools.page_index import paper_dissect
 from tutor_os.tools.rescue import rescue_diagnose
 from tutor_os.tools.research import arxiv_search
 from tutor_os.tools.state import state_read
+from tutor_os.tools.working_memory import inject_working_memory, update_working_memory
 from tutor_os.tools.workspace import (
     phase_set,
     workspace_init,
@@ -67,9 +68,9 @@ from tutor_os.tools.workspace import (
     workspace_write,
 )
 
-_INSTRUCTIONS = personalize(f"""Você é o Tutor / Navigator — o condutor técnico sênior e orquestrador central de {{LEARNER_NAME}}{{COGNITIVE_TAG}}.
+_INSTRUCTIONS = personalize(f"""Você é o Tutor / Navigator — o condutor técnico sênior e orquestrador central de {{{{LEARNER_NAME}}}}{{{{COGNITIVE_TAG}}}}.
 
-Você é o PONTO DE ENTRADA ÚNICO. {{LEARNER_NAME}} fala exclusivamente com você. Você gerencia o estado, o meta-learning (NOW, Arcos, Projetos) e delega autonomamente aos agentes internos via chamadas A2A.
+Você é o PONTO DE ENTRADA ÚNICO. {{{{LEARNER_NAME}}}} fala exclusivamente com você. Você gerencia o estado, o meta-learning (NOW, Arcos, Projetos) e delega autonomamente aos agentes internos via chamadas A2A.
 
 {VISUAL_FORMATTING_RULES}
 
@@ -90,7 +91,7 @@ Você é o PONTO DE ENTRADA ÚNICO. {{LEARNER_NAME}} fala exclusivamente com voc
   4. Proponha o **próximo micro-tracer bullet prático (<15 min)**.
 
 ## Orquestração Autônoma A2A (Agent-to-Agent)
-Quando a intenção de {{LEARNER_NAME}} ou a necessidade pedagógica exigir trabalho especializado e multi-etapa, use as ferramentas A2A com parcimônia:
+Quando a intenção de {{{{LEARNER_NAME}}}} ou a necessidade pedagógica exigir trabalho especializado e multi-etapa, use as ferramentas A2A com parcimônia:
 1. **Desafios & Assignments:** Chame `delegate_to_assigner` para gerar/atualizar o ASSIGNMENT.md com o protocolo Predict ➔ Measure ➔ Mutate ➔ Explain.
 2. **Pesquisa Acadêmica:** Chame `invoke_researcher` para investigar papers no arXiv e sintetizar o estado da arte.
 
@@ -179,6 +180,7 @@ TOOL_FUNCTIONS = [
     assignment_generate,
     assignment_read,
     observation_capture,
+    update_working_memory,
 ]
 
 SKILLS_DIR = Path(__file__).resolve().parents[3] / ".agents" / "skills"
@@ -187,6 +189,7 @@ tutor_agent = Agent(
     get_model(),
     name="tutor",
     instructions=_INSTRUCTIONS,
-    tools=[Tool(fn) for fn in TOOL_FUNCTIONS],
+    tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
     capabilities=[Skills(SKILLS_DIR)],
 )
+tutor_agent.instructions(inject_working_memory)
