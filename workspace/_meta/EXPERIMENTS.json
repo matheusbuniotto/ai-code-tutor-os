@@ -1,0 +1,11 @@
+[
+  {
+    "id": "exp-01",
+    "title": "Tracer Bullet in <15 min before reading documentation",
+    "hypothesis": "Writing the smallest failing code before reading theory reduces choice paralysis.",
+    "tweak": "Open the editor and run the first test in <10 lines before opening docs/articles.",
+    "metric": "Time to first green test",
+    "status": "active",
+    "createdAt": "2026-09-06"
+  }
+]

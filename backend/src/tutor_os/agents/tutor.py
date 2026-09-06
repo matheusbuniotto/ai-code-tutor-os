@@ -6,7 +6,7 @@ via A2A (Assigner, Researcher — see tutor_os.tools.delegation; Pair and
 Architect are siblings, not delegated to, and not yet ported), and loads
 narrower behavioral modes (challenger/teacher/reviewer/planner/scaffolder/
 breaker) on demand as pydantic-ai-harness Skills instead of spinning up a
-separate agent for each — see py/.agents/skills/. Those modes are single
+separate agent for each — see backend/.agents/skills/. Those modes are single
 prompt-shaped behaviors with no autonomous tool loop of their own, and
 loading them in-context (rather than delegating) keeps the Tutor's own
 conversation history available, which A2A delegation would otherwise drop.
