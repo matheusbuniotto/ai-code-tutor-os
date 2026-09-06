@@ -1,0 +1,96 @@
+[
+  {
+    "id": "arc1_behavior",
+    "title": "Arc 1: Investigation and Judgment of Software Behavior",
+    "description": "Build physical intuition and analytical ability about execution, saturation, concurrency contention, and failures.",
+    "color": "emerald",
+    "status": "in_progress",
+    "capabilities": [
+      {
+        "id": "cap-lock-contention",
+        "title": "Diagnose lock contention under parallel concurrency",
+        "verified": true,
+        "evidence": "Rust benchmark ranging from 1 to 64 threads with Mutex vs RwLock."
+      },
+      {
+        "id": "cap-wal-io-saturation",
+        "title": "Predict and mitigate I/O saturation in Write-Ahead Logging (WAL)",
+        "verified": true,
+        "evidence": "Demonstrated the sequential fsync limit and implemented group commit."
+      },
+      {
+        "id": "cap-idempotent-execution",
+        "title": "Design idempotent execution and post-failure recovery mechanisms",
+        "verified": false,
+        "evidence": ""
+      },
+      {
+        "id": "cap-memory-layout-cache",
+        "title": "Judge memory layout trade-offs (AoS vs SoA) and cache locality",
+        "verified": false,
+        "evidence": ""
+      }
+    ],
+    "linkedProjects": [
+      "eda-for-ai-rust"
+    ]
+  },
+  {
+    "id": "arc2_systems",
+    "title": "Arc 2: Reasoning About Distributed Systems and Resources",
+    "description": "Understand real trade-offs in data, inter-service communication, OS limits, partitioning, and reliability.",
+    "color": "sky",
+    "status": "in_progress",
+    "capabilities": [
+      {
+        "id": "cap-lsm-compaction",
+        "title": "Calculate and mitigate Write Amplification in LSM trees",
+        "verified": false,
+        "evidence": ""
+      },
+      {
+        "id": "cap-backpressure",
+        "title": "Implement flow control and reactive backpressure under overload",
+        "verified": false,
+        "evidence": ""
+      },
+      {
+        "id": "cap-distributed-consensus",
+        "title": "Model eventual-consistency vs. linearizability guarantees and trade-offs",
+        "verified": false,
+        "evidence": ""
+      }
+    ],
+    "linkedProjects": [
+      "eda-for-ai-rust"
+    ]
+  },
+  {
+    "id": "arc3_ai_systems",
+    "title": "Arc 3: Judgment and Engineering of AI Systems",
+    "description": "Master context, vector retrieval, tool orchestration, quantitative evaluation, and agent reliability.",
+    "color": "purple",
+    "status": "in_progress",
+    "capabilities": [
+      {
+        "id": "cap-agent-evals",
+        "title": "Design deterministic behavioral evaluation suites for agents",
+        "verified": false,
+        "evidence": ""
+      },
+      {
+        "id": "cap-context-distillation",
+        "title": "Optimize context compression and distillation without losing reasoning",
+        "verified": false,
+        "evidence": ""
+      },
+      {
+        "id": "cap-tool-failure-modes",
+        "title": "Build guardrails for recovering from unreliable tool-call failures",
+        "verified": false,
+        "evidence": ""
+      }
+    ],
+    "linkedProjects": []
+  }
+]
