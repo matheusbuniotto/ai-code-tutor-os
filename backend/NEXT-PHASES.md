@@ -88,7 +88,7 @@ declared as required `str` when the code (both the pre-existing
 fixed to `str | None`, which also resolved the ~14 pre-existing `ty`
 diagnostics on that file mentioned in the prior gotchas list below.
 
-`ui/index.html` previously got a `405` on `POST /api/research` from its own
+`frontend/index.html` previously got a `405` on `POST /api/research` from its own
 background polling — should be resolved now that the route exists; worth
 confirming next time the UI is exercised live.
 
@@ -166,7 +166,7 @@ quality, not just an edge-case endpoint.
 Ported `agents/challenger.ts`, `agents/reviewer.ts`, `agents/teacher.ts` to
 `agents/challenger.py`, `agents/reviewer.py`, `agents/teacher.py` following
 the `pair.py`/`architect.py` pattern exactly. All three already existed as
-Skills (`py/.agents/skills/{challenger,reviewer,teacher}/`) — those are
+Skills (`backend/.agents/skills/{challenger,reviewer,teacher}/`) — those are
 untouched, the Tutor still loads them contextually; these are the
 standalone, independently-chat-selectable versions, matching how TS has
 both simultaneously (`mastra.getAgent("challenger")` alongside the Tutor's
@@ -207,7 +207,7 @@ own contextual use).
 Ported `agents/subagents.ts`'s remaining three (`plannerAgent`,
 `scaffolderAgent`, `breakerAgent`) to `agents/planner.py`, `agents/scaffolder.py`,
 `agents/breaker.py`, following the same pattern as challenger/reviewer/teacher.
-All three already existed as Skills (`py/.agents/skills/{planner,scaffolder,breaker}/`)
+All three already existed as Skills (`backend/.agents/skills/{planner,scaffolder,breaker}/`)
 — untouched, Tutor still loads them contextually; these are the standalone,
 independently-chat-selectable versions.
 
@@ -276,7 +276,7 @@ independently-chat-selectable versions.
 `port = int(os.environ.get("PORT", "4116"))` instead of hardcoding 4116 —
 default unchanged, override via `PORT=<n> uv run tutor-os-py`. The
 `uv run uvicorn tutor_os.server:app --port 4116 --reload` dev command
-documented in `py/README.md` is unaffected (uvicorn's own `--port` flag
+documented in `backend/README.md` is unaffected (uvicorn's own `--port` flag
 controls that invocation, not `main()`) — added a note there pointing at
 the new env var for the packaged-entry-point path. `ruff`/`ty`/`prek`
 clean. Live-verified both cases: no `PORT` set → bound 4116 (`curl
@@ -301,7 +301,7 @@ no equivalent primitive, and none was needed):
 - **HTTP contract, deliberately new — nothing to match**: confirmed
   `sessionWorkflow` is registered in `src/mastra/index.ts` but has **zero**
   callers anywhere — not in `server.ts` (grepped, no route references it),
-  not in `ui/index.html`, not in `tutor-os.nvim`. It's only reachable via
+  not in `frontend/index.html`, not in `tutor-os.nvim`. It's only reachable via
   Mastra's own generic auto-exposed workflow-runner API (run-id-based
   create/start/resume), which nothing in this codebase's UI or plugin
   actually calls. So there was no existing contract to preserve — designed
@@ -378,7 +378,7 @@ deleting anything, then:
 - **`git rm tsconfig.json`** too — its only `include` target was
   `src/**/*.ts`, so it became dead the moment `src/` was gone. Not
   explicitly named in the original TODO wording but squarely in scope
-  (Node-backend build config, not a Tauri/`ui/` asset).
+  (Node-backend build config, not a Tauri/`frontend/` asset).
 - **`package.json` trimmed**: emptied `dependencies` entirely
   (`@ai-sdk/openai`, `@mastra/*`, `duck-duck-scrape`, `fast-xml-parser`,
   `zod` — all were imported only from the now-deleted `src/` tree, verified
@@ -386,19 +386,19 @@ deleting anything, then:
   `@tauri-apps/cli` — `mastra`, `tsx`, `typescript`, `@types/node` were only
   needed to run/type-check the deleted TS backend (confirmed via
   `tauri.conf.json`'s `frontendDist: "../ui"` — Tauri serves the static
-  `ui/` folder directly, no bundler, no TS build step in the frontend path
+  `frontend/` folder directly, no bundler, no TS build step in the frontend path
   at all). Scripts trimmed to just `app`/`tauri`; `dev`, `serve`, `start`,
   `mcp`, `build` removed (all pointed at now-deleted files). Ran
   `npm install` to regenerate `package-lock.json` against the trimmed
   manifest — succeeded clean, 3 packages, 0 vulnerabilities.
 - **`server.py`'s default port flipped 4116 → 4115** (`os.environ.get
-  ("PORT", "4115")`) now that Node no longer owns 4115. `py/README.md`
+  ("PORT", "4115")`) now that Node no longer owns 4115. `backend/README.md`
   updated to match and to drop the "coexists with Node" framing.
 - **Root `README.md`**: rewrote the "Rodar" (run) section to point at
-  `uv run tutor-os-py` / `py/README.md`; added a note atop the doc that the
+  `uv run tutor-os-py` / `backend/README.md`; added a note atop the doc that the
   Architecture/Memory/Workflow sections below describe the *original*
   Mastra design (kept for background, not rewritten line-by-line for
-  Python) and that `py/NEXT-PHASES.md` is the live migration record. A full
+  Python) and that `backend/NEXT-PHASES.md` is the live migration record. A full
   rewrite of those sections to Python-native terms was judged out of scope
   for this step — flagging here in case a future pass wants to do it
   properly rather than leaving it silently stale.
@@ -410,7 +410,7 @@ deleting anything, then:
   restarted with **no** `PORT` env var set — bound 4115 by default (not
   4116), confirming the flip actually took effect, not just the env-var
   override path.
-- **`@tauri-apps/api` note**: `ui/index.html` uses the injected
+- **`@tauri-apps/api` note**: `frontend/index.html` uses the injected
   `window.__TAURI__` global (`withGlobalTauri: true` in
   `tauri.conf.json`), not an import from the `@tauri-apps/api` npm
   package — that package may be fully unused too, but wasn't touched here
@@ -421,7 +421,7 @@ deleting anything, then:
 separate user decision)** — **Python MCP server**: nothing in this
 codebase depends on it (nvim plugin and UI are both plain HTTP; MCP only
 matters for external clients like Claude Desktop/Cursor/Windsurf, not in
-active use here). If picked up later: new `py/src/tutor_os/mcp_server.py`
+active use here). If picked up later: new `backend/src/tutor_os/mcp_server.py`
 (stdio transport, official `mcp` Python SDK), the ~23 direct tools already
 ported, `ask_<agent>` for all 11 wired agents plus `ask_harvester`, and the
 session workflow (`tools/session.py`, already real).
@@ -430,7 +430,7 @@ session workflow (`tools/session.py`, already real).
 - [x] `uv run tutor-os-py` is the only thing needed to run the backend —
       no `npm run serve`/`start`/`mcp` exist anymore (`npm run mcp` was
       never built for Python, intentionally deferred above).
-- [ ] `ui/index.html` works fully against Python-only on port 4115 — port
+- [ ] `frontend/index.html` works fully against Python-only on port 4115 — port
       flip verified via `/api/status`; a full UI click-through smoke test
       hasn't been re-run since this step, worth doing next time the UI is
       exercised live.
@@ -456,7 +456,7 @@ session workflow (`tools/session.py`, already real).
 - Keep the Node backend's SQLite file and the Python one separate
   (`tutor-os-py.db` vs `tutor-os.db`) — schemas differ enough that sharing
   risks corruption.
-- The UI's `API_BASE` in `ui/index.html` is same-origin only when served
+- The UI's `API_BASE` in `frontend/index.html` is same-origin only when served
   from exactly `localhost:4115`; anything else (a different port, `file://`)
   makes it call `http://localhost:4115` cross-origin. Always run the Python
   server on **:4115** for manual UI testing (the Node backend's port) — a
@@ -467,7 +467,7 @@ session workflow (`tools/session.py`, already real).
   python -c "import tutor_os.server"` as a fast smoke test before a live
   server run.
 - **`prek` is wired up** (`.pre-commit-config.yaml` at repo root, `uv run
-  prek install` already run) — `ruff check`/`ruff format` (scoped to `py/`,
+  prek install` already run) — `ruff check`/`ruff format` (scoped to `backend/`,
   with mccabe/pylint complexity+nesting rules: `C90`, `PLR0911/12/13/15`,
   `PLR1702`, `PLR2004`) plus `uvx ty check --project py "$@"` (scoped to
   staged files — NOT the whole project, that was a bug in the initial setup,

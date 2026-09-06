@@ -76,7 +76,7 @@ max-nested-blocks = 4
 "src/tutor_os/tools/*.py" = ["too-many-arguments"]
 
 # Pre-existing complexity/magic-value debt, accepted backlog (see
-# py/NEXT-PHASES.md's "Migration gotchas" section) — fix opportunistically
+# backend/NEXT-PHASES.md's "Migration gotchas" section) — fix opportunistically
 # if a future change touches these functions for real, rather than as a
 # drive-by refactor here.
 "src/tutor_os/tools/research.py" = [

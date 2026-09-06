@@ -1,5 +1,5 @@
-py/.venv/
-py/.ruff_cache/
+backend/.venv/
+backend/.ruff_cache/
 __pycache__/
 *.pyc
 *.db

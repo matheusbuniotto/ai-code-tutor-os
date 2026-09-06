@@ -11,7 +11,7 @@ cd py
 uv run uvicorn tutor_os.server:app --port 4115 --reload
 ```
 
-Serves the existing `ui/` frontend unmodified over the same HTTP/SSE
+Serves the existing `frontend/` frontend unmodified over the same HTTP/SSE
 contract the Node backend used to — env vars `OPENCODE_API_KEY` /
 `OPENCODE_BASE_URL` (or `OPENAI_*`) work the same way.
 
@@ -21,7 +21,7 @@ Alternatively, `uv run tutor-os-py` runs the packaged entry point
 `uvicorn ... --reload` form above always uses its own `--port` flag instead.
 
 Set `TUTOR_OS_ROOT` to point at the repo root if running from somewhere other
-than the default relative location (`py/`'s parent).
+than the default relative location (`backend/`'s parent).
 
 Copy `.env.example` to `.env` and fill in a model gateway key before running
 (there's no dotenv loader wired in — export it into your shell/process
@@ -51,7 +51,7 @@ loaded on demand into the Tutor's own context via `load_capability`):
   decides what to write), **researcher** (iterative search; isolating its
   noisy tool output from the Tutor's context is the actual point of
   delegating).
-- **Skills** (`py/.agents/skills/`, wired into `tutor_agent` via
+- **Skills** (`backend/.agents/skills/`, wired into `tutor_agent` via
   `capabilities=[Skills(...)]`): **challenger**, **teacher**, **reviewer**
   (top-level Judgment Auditor — `capability_verify` is already on the
   Tutor's own tools), **planner**, **scaffolder**, **breaker**. These were
@@ -75,4 +75,4 @@ loaded on demand into the Tutor's own context via `load_capability`):
   loop via `AbortController` on `res.on("close")`) — the Python SSE handler
   doesn't cancel the underlying agent run yet if the client disconnects.
 - The Neovim plugin's SSE/JSON-RPC endpoints — out of scope per the
-  migration's agreed scope (backend contract for `ui/`/Tauri, nvim ignored).
+  migration's agreed scope (backend contract for `frontend/`/Tauri, nvim ignored).
