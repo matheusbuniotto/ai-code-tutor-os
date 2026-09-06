@@ -328,7 +328,7 @@ async def post_learner_profile(request: Request) -> dict:
     return {
         "ok": True,
         "profile": asdict(profile),
-        "note": "Reinicie o servidor para aplicar às instructions dos agentes.",
+        "note": "Restart the server to apply this to the agents' instructions.",
     }
 
 
@@ -352,7 +352,11 @@ async def chat(request: Request) -> Any:
     title = (
         _preview_title(message)
         if not existing_thread
-        or existing_thread["title"] in (None, "", "Nova Sessão", "Sessão Principal")
+        or existing_thread["title"]
+        # Old Portuguese defaults kept alongside the new English ones so
+        # already-existing threads (titled before this i18n pass) still get
+        # auto-renamed from their first message instead of looking "stuck".
+        in (None, "", "Nova Sessão", "Sessão Principal", "New Session", "Main Session")
         else existing_thread["title"]
     )
     db.upsert_thread(thread_id, title, agent_id)
@@ -495,8 +499,9 @@ async def api_research_export_evidence(request: Request) -> Any:
         new_id = payload.get("id") or f"ev-paper-{datetime.now(UTC).strftime('%f')[-4:]}"
         new_evidence: L2Evidence = {
             "id": new_id,
-            "claim": payload.get("claim") or "Afirmação empírica extraída da literatura acadêmica.",
-            "metric": payload.get("metric") or "Comprovação Teórica e Benchmark",
+            "claim": payload.get("claim")
+            or "Empirical claim extracted from the academic literature.",
+            "metric": payload.get("metric") or "Theoretical Validation and Benchmark",
             "surface": payload.get("surface") or "benchmark",
             "sourceRef": payload.get("sourceRef")
             or payload.get("url")
@@ -508,7 +513,7 @@ async def api_research_export_evidence(request: Request) -> Any:
             "verifiedBy": "reviewer",
             "confidence": 1.0,
             "verifiedAt": datetime.now(UTC).isoformat(),
-            "notes": f"Citação Cirúrgica: {payload['surgicalCitation']}"
+            "notes": f"Surgical Citation: {payload['surgicalCitation']}"
             if payload.get("surgicalCitation")
             else None,
         }
@@ -528,7 +533,7 @@ async def api_research_export_evidence(request: Request) -> Any:
 async def api_threads() -> dict:
     threads = db.list_threads()
     if not threads:
-        db.upsert_thread("session-principal", "Sessão Principal", "tutor")
+        db.upsert_thread("session-principal", "Main Session", "tutor")
         threads = db.list_threads()
     return {
         "threads": [
@@ -550,7 +555,7 @@ async def api_threads() -> dict:
 async def thread_create(request: Request) -> dict:
     payload = await request.json()
     thread_id = payload.get("threadId") or db.new_id("thread")
-    title = payload.get("title") or "Nova Sessão"
+    title = payload.get("title") or "New Session"
     db.upsert_thread(thread_id, title, payload.get("agentId", "tutor"))
     return {"ok": True, "threadId": thread_id, "title": title}
 
@@ -591,7 +596,7 @@ async def thread_truncate(request: Request) -> Any:
     payload = await request.json()
     thread_id, from_message_id = payload.get("threadId"), payload.get("fromMessageId")
     if not thread_id or not from_message_id:
-        return JSONResponse({"error": "threadId e fromMessageId são obrigatórios"}, status_code=500)
+        return JSONResponse({"error": "threadId and fromMessageId are required"}, status_code=500)
     db.truncate_from(thread_id, from_message_id)
     db.touch_thread(thread_id)
     return {"ok": True}
@@ -611,7 +616,7 @@ async def _compact_thread(thread_id: str, keep_last: int = _AUTO_COMPACT_KEEP_LA
 
     lines = []
     for m in to_summarize:
-        speaker = "Usuário" if m["role"] == "user" else "Assistente"
+        speaker = "User" if m["role"] == "user" else "Assistant"
         text = (m["content"] or "").strip()
         line = f"{speaker}: {text}"
         if line.endswith(": "):
@@ -619,19 +624,19 @@ async def _compact_thread(thread_id: str, keep_last: int = _AUTO_COMPACT_KEEP_LA
         lines.append(line)
     transcript = "\n\n".join(lines)
 
-    summary_text = "(não foi possível gerar resumo)"
+    summary_text = "(unable to generate a summary)"
     try:
         agent = AGENTS["tutor"]
         result = await agent.run(
-            "Resuma o trecho de conversa abaixo em um texto denso (parágrafos curtos, "
-            "sem preenchimento), preservando: decisões tomadas, fatos concretos sobre o "
-            "projeto/código, e qualquer pendência em aberto. Não invente nada que não "
-            f"esteja no texto.\n\n---\n{transcript}\n---",
+            "Summarize the conversation excerpt below into dense text (short "
+            "paragraphs, no filler), preserving: decisions made, concrete facts "
+            "about the project/code, and any open pending items. Do not invent "
+            f"anything that isn't in the text.\n\n---\n{transcript}\n---",
             model=get_model(),
         )
         summary_text = result.output or summary_text
     except Exception:
-        logger.exception("compactThread: erro ao gerar resumo (thread=%s)", thread_id)
+        logger.exception("compactThread: error generating summary (thread=%s)", thread_id)
 
     cutoff_created_at = to_keep[0]["created_at"]
     db.delete_before(thread_id, cutoff_created_at)
@@ -642,7 +647,7 @@ async def _compact_thread(thread_id: str, keep_last: int = _AUTO_COMPACT_KEEP_LA
     db.save_message(
         thread_id,
         "assistant",
-        f"📦 [Resumo automático de {len(to_summarize)} mensagens anteriores]\n\n{summary_text}",
+        f"📦 [Automatic summary of {len(to_summarize)} earlier messages]\n\n{summary_text}",
         created_at=summary_timestamp,
     )
     db.touch_thread(thread_id)
@@ -659,7 +664,7 @@ async def thread_compact(request: Request) -> Any:
     payload = await request.json()
     thread_id = payload.get("threadId")
     if not thread_id:
-        return JSONResponse({"error": "threadId é obrigatório"}, status_code=500)
+        return JSONResponse({"error": "threadId is required"}, status_code=500)
     try:
         result = await _compact_thread(
             thread_id, payload.get("keepLast") or _AUTO_COMPACT_KEEP_LAST
@@ -689,14 +694,14 @@ async def thread_messages(threadId: str = "session-principal") -> dict:
 async def thread_export(threadId: str = "session-principal") -> Any:
     thread = db.get_thread(threadId)
     messages = db.list_messages(threadId)
-    title = (thread or {}).get("title") or "Sessão Tutor OS"
+    title = (thread or {}).get("title") or "Tutor OS Session"
     agent_id = (thread or {}).get("agent_id") or "tutor"
-    md = f"# {title}\n\n*ID da Sessão: `{threadId}` | Agente: {agent_id}*\n\n---\n\n"
+    md = f"# {title}\n\n*Session ID: `{threadId}` | Agent: {agent_id}*\n\n---\n\n"
     if not messages:
-        md += "*Nenhuma mensagem registrada nesta sessão.*\n"
+        md += "*No messages recorded in this session.*\n"
     else:
         for m in messages:
-            speaker = "### 👤 Você" if m["role"] == "user" else "### ✦ Tutor OS"
+            speaker = "### 👤 You" if m["role"] == "user" else "### ✦ Tutor OS"
             md += f"{speaker}\n\n{m['content']}\n\n---\n\n"
     return StreamingResponse(
         iter([md]),
@@ -766,8 +771,7 @@ async def api_workspace_init(request: Request) -> dict:
     return workspace_init(
         project_slug=payload.get("slug"),
         title=payload.get("title") or payload.get("slug"),
-        objective=payload.get("objective")
-        or "Construir compreensão física e invariantes de sistema",
+        objective=payload.get("objective") or "Build physical understanding and system invariants",
         stack=payload.get("stack") or "Go / Rust",
     )
 
@@ -868,7 +872,7 @@ async def api_memory_evidence_create(request: Request) -> Any:
         confidence = payload.get("confidence")
         new_evidence: L2Evidence = {
             "id": ev_id,
-            "claim": payload.get("claim") or "Evidência comprovada",
+            "claim": payload.get("claim") or "Proven evidence",
             "metric": payload.get("metric"),
             "sourceL1Id": payload.get("sourceL1Id")
             or f"ep-{datetime.now(UTC).strftime('%Y%m%d')}-01",
@@ -945,7 +949,7 @@ async def api_rescue(request: Request) -> Any:
     try:
         payload = await request.json()
         return rescue_diagnose(
-            payload.get("scenario") or "travou_no_meio",
+            payload.get("scenario") or "stuck_midway",
             details=payload.get("notes") or "",
         )
     except Exception as err:
@@ -968,18 +972,18 @@ async def api_inbox(request: Request) -> Any:
         content = (
             inbox_path.read_text(encoding="utf-8")
             if inbox_path.exists()
-            else "# INBOX\n\nÁrea de retenção de ideias — não é fila de tarefas.\n\n"
+            else "# INBOX\n\nIdea holding area — not a task queue.\n\n"
         )
         timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
         idea_entry = (
-            f"\n### [{timestamp}] {payload.get('idea') or 'Nova Ideia'}\n"
-            f"- **Por que parece interessante:** {payload.get('reason') or 'Não especificado'}\n"
-            f"- **Próximo passo possível:** {payload.get('nextStep') or 'Não especificado'}\n"
+            f"\n### [{timestamp}] {payload.get('idea') or 'New Idea'}\n"
+            f"- **Why it seems interesting:** {payload.get('reason') or 'Not specified'}\n"
+            f"- **Possible next step:** {payload.get('nextStep') or 'Not specified'}\n"
         )
         content += idea_entry
         inbox_path.parent.mkdir(parents=True, exist_ok=True)
         inbox_path.write_text(content, encoding="utf-8")
-        return {"ok": True, "message": "Ideia capturada no INBOX com segurança!"}
+        return {"ok": True, "message": "Idea safely captured in INBOX!"}
     except Exception as err:
         return JSONResponse({"error": str(err)}, status_code=500)
 
@@ -991,16 +995,16 @@ async def api_experiments_get() -> Any:
             initial_exp = [
                 {
                     "id": "exp-01",
-                    "title": "Tracer Bullet em <15 min antes de ler documentação",
+                    "title": "Tracer Bullet in <15 min before reading documentation",
                     "hypothesis": (
-                        "Escrever o menor código falhando antes de ler teoria "
-                        "reduz paralisia de escolha."
+                        "Writing the smallest failing code before reading theory "
+                        "reduces choice paralysis."
                     ),
                     "tweak": (
-                        "Abrir o editor e rodar primeiro teste em <10 linhas "
-                        "antes de abrir docs/artigos."
+                        "Open the editor and run the first test in <10 lines "
+                        "before opening docs/articles."
                     ),
-                    "metric": "Tempo até o primeiro teste verde",
+                    "metric": "Time to first green test",
                     "status": "active",
                     "createdAt": datetime.now(UTC).strftime("%Y-%m-%d"),
                 }
@@ -1110,19 +1114,19 @@ async def api_arc_verify(request: Request) -> Any:
         arcs = read_arcs_data()
         arc = next((a for a in arcs if a.get("id") == arc_id), None)
         if not arc:
-            raise ValueError(f"Arco não encontrado: {arc_id}")
+            raise ValueError(f"Arc not found: {arc_id}")
         cap = next((c for c in arc["capabilities"] if c.get("id") == capability_id), None)
         now = datetime.now(UTC).isoformat()
         if cap:
             cap["verified"] = True
-            cap["evidence"] = evidence or "Demonstrado e verificado com sucesso."
+            cap["evidence"] = evidence or "Demonstrated and successfully verified."
             cap["verifiedAt"] = now
         else:
             arc["capabilities"].append({
                 "id": capability_id,
                 "title": capability_id,
                 "verified": True,
-                "evidence": evidence or "Demonstrado e verificado com sucesso.",
+                "evidence": evidence or "Demonstrated and verified successfully.",
                 "verifiedAt": now,
             })
         save_arcs_data(arcs)

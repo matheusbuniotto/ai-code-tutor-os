@@ -126,7 +126,7 @@ def truncate_from(thread_id: str, from_message_id: str) -> None:
             (from_message_id, thread_id),
         ).fetchone()
         if not row:
-            raise ValueError("Mensagem não encontrada")
+            raise ValueError("Message not found")
         conn.execute(
             "DELETE FROM messages WHERE thread_id = ? AND created_at >= ?",
             (thread_id, row["created_at"]),

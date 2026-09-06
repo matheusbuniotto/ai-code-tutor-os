@@ -27,9 +27,9 @@ class Phase(TypedDict):
 PHASES: tuple[Phase, ...] = (
     {
         "n": 1,
-        "id": "macro-topologia",
+        "id": "macro-topology",
         "dir": "01-topology",
-        "kickoff": "Mapear invariantes/trade-offs no PAPEL antes de abrir o editor.",
+        "kickoff": "Map invariants/trade-offs on PAPER before opening the editor.",
         "artifact": "01-topology/mapa.md",
     },
     {
@@ -37,8 +37,8 @@ PHASES: tuple[Phase, ...] = (
         "id": "tracer-bullet",
         "dir": "02-tracer-bullet",
         "kickoff": (
-            "Menor protótipo ponta-a-ponta tocando os primitivos centrais. "
-            "Você escreve; scaffolder entrega esqueleto com lacunas."
+            "Smallest end-to-end prototype touching the core primitives. "
+            "You write it; the scaffolder delivers a skeleton with gaps."
         ),
         "artifact": "02-tracer-bullet/",
     },
@@ -47,18 +47,18 @@ PHASES: tuple[Phase, ...] = (
         "id": "break-edges",
         "dir": "03-break-edges",
         "kickoff": (
-            "Quebrar o protótipo nos limites (concorrência, dado malformado, "
-            "escala) para fixar intuição física."
+            "Break the prototype at its edges (concurrency, malformed data, "
+            "scale) to lock in physical intuition."
         ),
         "artifact": "03-break-edges/",
     },
     {
         "n": 4,
-        "id": "nota-arquitetura",
+        "id": "architecture-note",
         "dir": ".",
         "kickoff": (
-            "1 página: invariantes / quando usar vs não usar / armadilhas. "
-            "Harvester fecha a sessão depois disso."
+            "1 page: invariants / when to use vs. not use / traps. "
+            "The Harvester closes the session after this."
         ),
         "artifact": "04-arquitetura-note.md",
     },
@@ -80,8 +80,8 @@ def _suspended_response(
         "kickoff": phase["kickoff"],
         "expectedArtifact": phase["artifact"],
         "message": (
-            f"Fase {phase['n']}/4 — {phase['id']}. {phase['kickoff']} "
-            "Confirme o gate quando o critério estiver verde."
+            f"Phase {phase['n']}/4 — {phase['id']}. {phase['kickoff']} "
+            "Confirm the gate once the criterion is green."
         ),
     }
     if completed_phase is not None:
@@ -90,49 +90,49 @@ def _suspended_response(
 
 
 def session_start(project_slug: str, title: str, objective: str, stack: str) -> dict:
-    """Inicia (ou retoma) uma sessão da Pirâmide Invertida para um projeto.
+    """Starts (or resumes) an Inverted Pyramid session for a project.
 
-    Garante a estrutura de pastas/SPEC.md/STATE.md via `workspace_init`
-    (idempotente — reusa arquivos existentes em vez de sobrescrever) e
-    retorna o gate suspenso da fase 1: toda sessão nova começa suspensa
-    aguardando o critério da fase 1 ficar verde.
+    Ensures the folder/SPEC.md/STATE.md structure via `workspace_init`
+    (idempotent — reuses existing files instead of overwriting) and
+    returns phase 1's suspended gate: every new session starts suspended,
+    waiting for phase 1's criterion to turn green.
 
     Args:
-        project_slug: slug do projeto.
-        title: Título do projeto.
-        objective: Objetivo do projeto.
-        stack: Stack tecnológica.
+        project_slug: project slug.
+        title: Project title.
+        objective: Project objective.
+        stack: Technology stack.
     """
     workspace_init(project_slug, title, objective, stack)
     return _suspended_response(project_slug, _PHASES_BY_N[1])
 
 
 def session_advance(project_slug: str, phase: int, passed: bool, note: str | None = None) -> dict:
-    """Avança (ou reafirma) o gate humano de uma fase da sessão.
+    """Advances (or reaffirms) the human gate for a session phase.
 
-    Se `passed` for False, retorna de novo o gate suspenso da fase atual sem
-    alterar o STATE.md — mesma semântica do `suspend()` do Mastra, que só
-    interrompe a execução e não persiste nada.
+    If `passed` is False, returns the current phase's suspended gate again
+    without changing STATE.md — the same semantics as Mastra's `suspend()`,
+    which only halts execution and persists nothing.
 
-    Se `passed` for True, marca a fase como concluída e:
-    - se `phase` < 4: retorna imediatamente o gate suspenso da PRÓXIMA fase
-      (equivalente ao encadeamento `.then(phaseNStep)` do Mastra: o resume
-      de uma fase entra direto na execução do próximo step, que suspende de
-      novo por ainda não ter `resumeData`).
-    - se `phase` == 4: fecha a sessão — replica o comportamento do
-      `finishStep` do TS, que roda incondicionalmente após o gate da fase 4
-      e REESCREVE o status de "concluido" de volta para "em-andamento" com
-      uma nota de encerramento, sinalizando que as 4 fases de código estão
-      prontas mas a sessão só fecha de verdade depois que o Harvester rodar.
+    If `passed` is True, marks the phase as completed and:
+    - if `phase` < 4: immediately returns the suspended gate for the NEXT
+      phase (equivalent to Mastra's `.then(phaseNStep)` chaining: resuming
+      one phase goes straight into the next step's execution, which
+      suspends again since it doesn't have `resumeData` yet).
+    - if `phase` == 4: closes the session — replicates the TS `finishStep`
+      behavior, which runs unconditionally after phase 4's gate and
+      REWRITES the status from "concluido" back to "em-andamento" with a
+      closing note, signaling that the 4 code phases are ready but the
+      session only truly closes once the Harvester runs.
 
     Args:
-        project_slug: slug do projeto.
-        phase: fase sendo confirmada (1 a 4).
-        passed: se o critério "pronto quando" da fase está satisfeito.
-        note: nota opcional do gate (registrada no log do STATE.md).
+        project_slug: project slug.
+        phase: phase being confirmed (1 to 4).
+        passed: whether the phase's "done when" criterion is satisfied.
+        note: optional gate note (recorded in STATE.md's log).
     """
     if phase not in _PHASES_BY_N:
-        raise ValueError("phase precisa ser 1, 2, 3 ou 4")
+        raise ValueError("phase must be 1, 2, 3, or 4")
 
     if not passed:
         return _suspended_response(project_slug, _PHASES_BY_N[phase])
@@ -142,11 +142,11 @@ def session_advance(project_slug: str, phase: int, passed: bool, note: str | Non
         return _suspended_response(project_slug, _PHASES_BY_N[phase + 1], completed_phase=phase)
 
     phase_set(project_slug, _FINAL_PHASE, "concluido", note)
-    phase_set(project_slug, _FINAL_PHASE, "em-andamento", "sessão encerrada — rodar harvest")
+    phase_set(project_slug, _FINAL_PHASE, "em-andamento", "session closed — run harvest")
     return {
         "projectSlug": project_slug,
         "suspended": False,
         "finished": True,
         "completedPhase": _FINAL_PHASE,
-        "summary": f"Projeto {project_slug}: 4 fases concluídas. Chame o Harvester.",
+        "summary": f"Project {project_slug}: 4 phases completed. Call the Harvester.",
     }

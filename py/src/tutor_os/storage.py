@@ -16,13 +16,11 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
-PROJECT_ROOT = Path(
-    os.environ.get("TUTOR_OS_ROOT") or Path(__file__).resolve().parents[3]
-)
+PROJECT_ROOT = Path(os.environ.get("TUTOR_OS_ROOT") or Path(__file__).resolve().parents[3])
 WORKSPACE_ROOT = PROJECT_ROOT / "workspace"
 
 DB_PATH = PROJECT_ROOT / "tutor-os-py.db"

@@ -12,7 +12,7 @@ from typing import Literal
 
 import httpx
 
-_CACHE_TTL_S = 60 * 60  # 1 hora
+_CACHE_TTL_S = 60 * 60  # 1 hour
 _paper_cache: dict[str, tuple[list[dict], int, float]] = {}
 _web_cache: dict[str, tuple[list[dict], int, float]] = {}
 
@@ -45,16 +45,16 @@ async def arxiv_search(
     ] = "relevance",
     search_field: Literal["all", "ti", "au", "abs"] = "all",
 ) -> dict:
-    """Busca papers acadêmicos reais (arXiv, IEEE, ACM, OSDI, VLDB) por frase ou palavras-chave.
+    """Searches real academic papers (arXiv, IEEE, ACM, OSDI, VLDB) by phrase or keywords.
 
-    Retorna múltiplos artigos com contagem de citações, autores, resumos e
-    links diretos para embasar a arquitetura.
+    Returns multiple articles with citation counts, authors, abstracts, and
+    direct links to ground the architecture.
 
     Args:
-        query: Termo de busca, ex: "lsm tree write amplification".
-        max_results: 1-50, padrão 10.
+        query: Search term, e.g. "lsm tree write amplification".
+        max_results: 1-50, default 10.
         sort_by: relevance | submittedDate | lastUpdatedDate | citations | cited_by_count.
-        search_field: all | ti | au | abs (não usado pela API atual, mantido por paridade).
+        search_field: all | ti | au | abs (not used by the current API, kept for parity).
     """
     cache_key = f"{query.lower().strip()}:{max_results}:{sort_by}"
     cached = _paper_cache.get(cache_key)
@@ -81,9 +81,9 @@ async def arxiv_search(
 
         papers = []
         for p in results:
-            abstract = _reconstruct_abstract(
-                p.get("abstract_inverted_index")
-            ) or _clean_text(p.get("display_name"))
+            abstract = _reconstruct_abstract(p.get("abstract_inverted_index")) or _clean_text(
+                p.get("display_name")
+            )
             authors = [
                 _clean_text((a.get("author") or {}).get("display_name"))
                 for a in p.get("authorships") or []
@@ -92,32 +92,26 @@ async def arxiv_search(
             title = _clean_text(p.get("display_name"))
             if not title:
                 continue
-            papers.append(
-                {
-                    "title": title,
-                    "authors": authors or ["Academic Research Group"],
-                    "summary": (abstract[:380] + "...")
-                    if len(abstract) > 380
-                    else abstract,
-                    "published": str(p.get("publication_year") or ""),
-                    "url": p.get("doi")
-                    or (p.get("primary_location") or {}).get("landing_page_url")
-                    or p.get("id")
-                    or "",
-                    "citations": p.get("cited_by_count") or 0,
-                    "venue": _clean_text(
-                        (p.get("primary_location") or {})
-                        .get("source", {})
-                        .get("display_name")
-                        or "Academic Index"
-                    ),
-                }
-            )
+            papers.append({
+                "title": title,
+                "authors": authors or ["Academic Research Group"],
+                "summary": (abstract[:380] + "...") if len(abstract) > 380 else abstract,
+                "published": str(p.get("publication_year") or ""),
+                "url": p.get("doi")
+                or (p.get("primary_location") or {}).get("landing_page_url")
+                or p.get("id")
+                or "",
+                "citations": p.get("cited_by_count") or 0,
+                "venue": _clean_text(
+                    (p.get("primary_location") or {}).get("source", {}).get("display_name")
+                    or "Academic Index"
+                ),
+            })
 
         if papers:
             _paper_cache[cache_key] = (papers, total, time.time())
             return {"papers": papers, "totalMatches": total}
-    except Exception:  # noqa: BLE001 - mirrors the TS best-effort swallow
+    except Exception:
         pass
 
     return {"papers": [], "totalMatches": 0}
@@ -128,15 +122,15 @@ async def web_search(
     source: Literal["all", "web", "stackoverflow", "github", "wikipedia"] = "all",
     max_results: int = 6,
 ) -> dict:
-    """Pesquisa ampla e gratuita na web técnica (StackOverflow, GitHub, Wikipedia, Hacker News).
+    """Broad, free search across the technical web (StackOverflow, GitHub, Wikipedia, Hacker News).
 
-    Retorna artigos, explicações de algoritmos, discussões técnicas,
-    documentação e implementações de código reais sem necessidade de chaves de API.
+    Returns articles, algorithm explanations, technical discussions,
+    documentation, and real code implementations with no API key required.
 
     Args:
-        query: Termo de busca na web.
+        query: Web search term.
         source: all | web | stackoverflow | github | wikipedia.
-        max_results: 1-20, padrão 6.
+        max_results: 1-20, default 6.
     """
     cache_key = f"web:{source}:{query.lower().strip()}:{max_results}"
     cached = _web_cache.get(cache_key)
@@ -160,16 +154,14 @@ async def web_search(
                 )
                 resp.raise_for_status()
                 for item in resp.json().get("items") or []:
-                    aggregated.append(
-                        {
-                            "title": _clean_text(item.get("title")),
-                            "snippet": f"Score: {item.get('score')} | Tags: {', '.join(item.get('tags') or [])} | Resposta técnica sobre comportamento e implementação.",
-                            "url": item.get("link")
-                            or f"https://stackoverflow.com/q/{item.get('question_id')}",
-                            "source": "StackOverflow",
-                        }
-                    )
-            except Exception:  # noqa: BLE001
+                    aggregated.append({
+                        "title": _clean_text(item.get("title")),
+                        "snippet": f"Score: {item.get('score')} | Tags: {', '.join(item.get('tags') or [])} | Technical answer about behavior and implementation.",
+                        "url": item.get("link")
+                        or f"https://stackoverflow.com/q/{item.get('question_id')}",
+                        "source": "StackOverflow",
+                    })
+            except Exception:
                 pass
 
         if source in ("all", "web", "wikipedia"):
@@ -191,15 +183,13 @@ async def web_search(
                     snippet = item.get("snippet", "")
                     import re as _re
 
-                    aggregated.append(
-                        {
-                            "title": _clean_text(title),
-                            "snippet": _clean_text(_re.sub(r"<[^>]+>", "", snippet)),
-                            "url": f"https://en.wikipedia.org/wiki/{title.replace(' ', '_')}",
-                            "source": "Wikipedia",
-                        }
-                    )
-            except Exception:  # noqa: BLE001
+                    aggregated.append({
+                        "title": _clean_text(title),
+                        "snippet": _clean_text(_re.sub(r"<[^>]+>", "", snippet)),
+                        "url": f"https://en.wikipedia.org/wiki/{title.replace(' ', '_')}",
+                        "source": "Wikipedia",
+                    })
+            except Exception:
                 pass
 
         if source in ("all", "web", "github"):
@@ -215,18 +205,15 @@ async def web_search(
                 )
                 resp.raise_for_status()
                 for repo in resp.json().get("items") or []:
-                    aggregated.append(
-                        {
-                            "title": f"{repo.get('full_name')} ({repo.get('language') or 'Code'}) ★{repo.get('stargazers_count') or 0}",
-                            "snippet": _clean_text(
-                                repo.get("description")
-                                or "Repositório de código aberto de referência técnica."
-                            ),
-                            "url": repo.get("html_url") or "",
-                            "source": "GitHub",
-                        }
-                    )
-            except Exception:  # noqa: BLE001
+                    aggregated.append({
+                        "title": f"{repo.get('full_name')} ({repo.get('language') or 'Code'}) ★{repo.get('stargazers_count') or 0}",
+                        "snippet": _clean_text(
+                            repo.get("description") or "Reference open-source technical repository."
+                        ),
+                        "url": repo.get("html_url") or "",
+                        "source": "GitHub",
+                    })
+            except Exception:
                 pass
 
         if source in ("all", "web"):
@@ -242,16 +229,14 @@ async def web_search(
                 resp.raise_for_status()
                 for hit in resp.json().get("hits") or []:
                     if hit.get("title"):
-                        aggregated.append(
-                            {
-                                "title": _clean_text(hit["title"]),
-                                "snippet": f"Hacker News Points: {hit.get('points') or 0} | Comentários: {hit.get('num_comments') or 0} | Artigo de engenharia e discussão empírica.",
-                                "url": hit.get("url")
-                                or f"https://news.ycombinator.com/item?id={hit.get('objectID')}",
-                                "source": "HackerNews",
-                            }
-                        )
-            except Exception:  # noqa: BLE001
+                        aggregated.append({
+                            "title": _clean_text(hit["title"]),
+                            "snippet": f"Hacker News Points: {hit.get('points') or 0} | Comments: {hit.get('num_comments') or 0} | Engineering article and empirical discussion.",
+                            "url": hit.get("url")
+                            or f"https://news.ycombinator.com/item?id={hit.get('objectID')}",
+                            "source": "HackerNews",
+                        })
+            except Exception:
                 pass
 
     final_results = aggregated[:max_results]

@@ -36,21 +36,21 @@ from tutor_os.storage import WORKSPACE_ROOT
 WORKING_MEMORY_PATH = WORKSPACE_ROOT / "_meta" / "WORKING_MEMORY.md"
 
 Section = Literal[
-    "perfil-cognitivo-afetivo",
-    "niveis-por-stack",
-    "calibracao-facil",
-    "padroes-de-bloqueio",
-    "politica-rewards",
-    "microvitorias",
+    "cognitive-affective-profile",
+    "levels-by-stack",
+    "easy-calibration",
+    "blockage-patterns",
+    "rewards-policy",
+    "microvictories",
 ]
 
 _SECTION_HEADERS: dict[Section, str] = {
-    "perfil-cognitivo-afetivo": "Perfil Cognitivo & Afetivo",
-    "niveis-por-stack": "Níveis por Stack",
-    "calibracao-facil": 'Calibração "Fácil" (Boilerplate → Tutor/Driver executa)',
-    "padroes-de-bloqueio": "Padrões de Bloqueio Observados",
-    "politica-rewards": "Política de Rewards & Alavancagem",
-    "microvitorias": "Microvitórias & Provas de Realidade Recentes",
+    "cognitive-affective-profile": "Cognitive & Affective Profile",
+    "levels-by-stack": "Levels by Stack",
+    "easy-calibration": '"Easy" Calibration (Boilerplate → Tutor/Driver executes)',
+    "blockage-patterns": "Observed Blockage Patterns",
+    "rewards-policy": "Rewards & Leverage Policy",
+    "microvictories": "Microvictories & Recent Reality Checks",
 }
 
 
@@ -60,44 +60,44 @@ def build_learner_profile_template(profile: LearnerProfile) -> str:
         tag = f" ({profile.cognitive_tag})" if profile.cognitive_tag else ""
         detail = (
             profile.cognitive_profile_detail
-            or "<!-- edite em Settings > Perfil do Aprendiz > Perfil Cognitivo Detalhado -->"
+            or "<!-- edit in Settings > Learner Profile > Detailed Cognitive Profile -->"
         )
         cognitive_section = (
-            f"## Perfil Cognitivo & Afetivo{tag}\n{detail}\n"
-            "<!-- Harvester complementa com observações de estilo cognitivo conforme evidência aparecer -->\n"
+            f"## Cognitive & Affective Profile{tag}\n{detail}\n"
+            "<!-- Harvester adds cognitive-style observations as evidence appears -->\n"
         )
     else:
         cognitive_section = (
-            "## Perfil Cognitivo & Afetivo\n"
-            "<!-- Harvester registra observações de estilo cognitivo conforme evidência aparecer -->\n"
+            "## Cognitive & Affective Profile\n"
+            "<!-- Harvester records cognitive-style observations as evidence appears -->\n"
         )
 
     template = f"""# Learner Profile — {{{{LEARNER_NAME}}}}
-*Perfil dinâmico — atualizado conforme evidência aparece na sessão*
+*Dynamic profile — updated as evidence appears in the session*
 
 {cognitive_section}
-## Invariantes Operacionais (Não Negociáveis)
-1. Nunca tempo em relógio ("2h", "30min"). Use unidades atômicas ("uma sessão", "um ciclo de fase").
-2. Pirâmide Invertida: Macro-Topologia (1) ➔ Tracer Bullet (2) ➔ Quebrar Bordas (3) ➔ Nota de Arquitetura 1 página (4).
-3. Propriedade do Código: {{{{LEARNER_NAME}}}} escreve o código central na Fase 2. IA fornece apenas esqueleto de integração com lacunas nomeadas.
-4. Paper-First Topology: Desenho dos invariantes no papel antes de abrir IDE ou codar.
-5. Achar fatos é trabalho da IA: Leia estado e episódios antes de falar. NUNCA pergunte "onde paramos?".
-6. Zero culpa / Sem moralização: Abandono é dado empírico. Registre o porquê e siga.
-7. Uma única voz conversacional: Tutor/Navigator interage por padrão.
+## Operational Invariants (Non-Negotiable)
+1. Never clock time ("2h", "30min"). Use atomic units ("one session", "one phase cycle").
+2. Inverted Pyramid: Macro Topology (1) → Tracer Bullet (2) → Break Edges (3) → 1-Page Architecture Note (4).
+3. Code Ownership: {{{{LEARNER_NAME}}}} writes the core code in Phase 2. The AI only provides an integration skeleton with named gaps.
+4. Paper-First Topology: sketch the invariants on paper before opening the IDE or coding.
+5. Finding facts is the AI's job: read the state and episodes before speaking. NEVER ask "where did we leave off?".
+6. Zero blame / no moralizing: abandonment is empirical data. Record why and move on.
+7. One single conversational voice: Tutor/Navigator interacts by default.
 
-## Níveis por Stack
-<!-- atualizado via update_working_memory: stack → iniciante/intermediário/avançado + evidência -->
+## Levels by Stack
+<!-- updated via update_working_memory: stack → beginner/intermediate/advanced + evidence -->
 
-## Calibração "Fácil" (Boilerplate → Tutor/Driver executa)
-<!-- ex: setup, pyproject, build scripts, integração de dados crua -->
+## "Easy" Calibration (Boilerplate → Tutor/Driver executes)
+<!-- e.g. setup, pyproject, build scripts, raw data integration -->
 
-## Padrões de Bloqueio Observados
-<!-- registrado via update_working_memory conforme padrões recorrentes aparecem, com data -->
+## Observed Blockage Patterns
+<!-- recorded via update_working_memory as recurring patterns appear, with date -->
 
-## Política de Rewards & Alavancagem
-<!-- O que funcionou / o que não funcionou nesta fase -->
+## Rewards & Leverage Policy
+<!-- What worked / what didn't in this phase -->
 
-## Microvitórias & Provas de Realidade Recentes
+## Microvictories & Recent Reality Checks
 ✅
 """
     return personalize(template, profile)
@@ -114,18 +114,18 @@ def get_working_memory() -> str:
 
 
 def update_working_memory(section: Section, content: str) -> dict:
-    """Atualiza uma seção do Learner Profile (working memory) — chame sempre que notar um
-    fato duradouro sobre o aprendiz (nível de stack, padrão de bloqueio, microvitória, o que
-    funcionou/não funcionou). Substitui a seção inteira pelo novo conteúdo.
+    """Updates a section of the Learner Profile (working memory) — call whenever you notice a
+    durable fact about the learner (stack level, blockage pattern, microvictory, what
+    worked/didn't work). Replaces the entire section with the new content.
 
     Args:
-        section: Seção do Learner Profile a atualizar.
-        content: Novo conteúdo completo da seção (substitui o anterior).
+        section: Section of the Learner Profile to update.
+        content: New full content of the section (replaces the previous one).
     """
     body = get_working_memory()
     header = f"## {_SECTION_HEADERS[section]}"
-    # `[^\n]*` tolerates a header line with a trailing suffix (e.g. "Perfil
-    # Cognitivo & Afetivo (GAI elevado, ...)" when a cognitive_tag is set) —
+    # `[^\n]*` tolerates a header line with a trailing suffix (e.g. "Cognitive
+    # & Affective Profile (elevated GAI, ...)" when a cognitive_tag is set) —
     # match on the header prefix, not the exact full line.
     pattern = re.compile(rf"{re.escape(header)}[^\n]*\n[\s\S]*?(?=\n## |$)")
     replacement = f"{header}\n{content}\n"

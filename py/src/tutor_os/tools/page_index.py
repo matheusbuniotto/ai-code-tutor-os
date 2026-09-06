@@ -17,7 +17,7 @@ import hashlib
 import json
 import re
 from dataclasses import asdict, dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import httpx
 
@@ -102,7 +102,7 @@ def read_dissected_papers() -> list[dict]:
             return []
         parsed = json.loads(PAPER_INDEX_FILE.read_text(encoding="utf-8"))
         return parsed if isinstance(parsed, list) else []
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         print(f"Error reading PAPER_INDEX.json: {err}")
         return []
 
@@ -111,13 +111,9 @@ def save_dissected_paper(paper: dict) -> None:
     META_DIR.mkdir(parents=True, exist_ok=True)
     existing = read_dissected_papers()
     updated = [paper] + [
-        p
-        for p in existing
-        if p.get("id") != paper.get("id") and p.get("url") != paper.get("url")
+        p for p in existing if p.get("id") != paper.get("id") and p.get("url") != paper.get("url")
     ]
-    PAPER_INDEX_FILE.write_text(
-        json.dumps(updated, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    PAPER_INDEX_FILE.write_text(json.dumps(updated, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def synthesize_page_index(
@@ -132,9 +128,7 @@ def synthesize_page_index(
     first_author = authors[0].split(" ")[-1] if authors else "Researcher"
     author_citation = f"{first_author} et al." if len(authors) > 1 else first_author
     citation_year = year or str(date.today().year)
-    surgical_citation = (
-        f"[{author_citation}, {venue or 'arXiv'} {citation_year}, §3, p. 4]"
-    )
+    surgical_citation = f"[{author_citation}, {venue or 'arXiv'} {citation_year}, §3, p. 4]"
 
     title_lower = title.lower()
     abs_lower = abstract.lower()
@@ -145,59 +139,59 @@ def synthesize_page_index(
     is_concurrency = any(
         k in title_lower for k in ("lock", "concurrency", "atomic", "thread")
     ) or any(k in abs_lower for k in ("contention", "cache"))
-    is_storage = any(
-        k in title_lower for k in ("lsm", "wal", "storage", "btree")
-    ) or any(k in abs_lower for k in ("fsync", "durability"))
+    is_storage = any(k in title_lower for k in ("lsm", "wal", "storage", "btree")) or any(
+        k in abs_lower for k in ("fsync", "durability")
+    )
 
     sections = [
         PageIndexSection(
             "§1",
             1,
-            "Introdução & Formulação do Gargalo",
+            "Introduction & Bottleneck Formulation",
             _clean_text(abstract[:200]) + "...",
             [
-                "Identificação de overhead intrínseco sob alta carga de produção.",
-                "Trade-off clássico entre latência pontual e throughput agregado.",
+                "Identification of intrinsic overhead under high production load.",
+                "Classic trade-off between point latency and aggregate throughput.",
             ],
         ),
         PageIndexSection(
             "§2",
             3,
-            "Topologia do Sistema & Hipóteses de Design",
-            "Estrutura modular de dados em memória e desacoplamento do caminho crítico de execução.",
+            "System Topology & Design Hypotheses",
+            "Modular in-memory data structure and decoupling of the execution critical path.",
             [
-                "Invariante de consistência e delimitação do lock scope.",
-                "Separação estrita entre I/O bloqueante e processamento lock-free.",
+                "Consistency invariant and lock-scope delimitation.",
+                "Strict separation between blocking I/O and lock-free processing.",
             ],
         ),
         PageIndexSection(
             "§3",
             5,
-            "Teoremas Centrais & Formalização Algorítmica",
-            "Modelagem matemática da complexidade de contenção e garantias formais de progresso.",
+            "Core Theorems & Algorithmic Formalization",
+            "Mathematical modeling of contention complexity and formal progress guarantees.",
             [
-                "Garantia de Linearizability / Serializability formal.",
-                "Barreiras de memória e contenção sub-linear em multicore.",
+                "Formal Linearizability / Serializability guarantee.",
+                "Memory barriers and sub-linear contention on multicore.",
             ],
         ),
         PageIndexSection(
             "§4",
             8,
-            "Resultados Empíricos & Avaliação de Performance",
-            "Benchmarks de estresse sob saturação de CPU/Memória/Disco comparando contra baselines do estado da arte.",
+            "Empirical Results & Performance Evaluation",
+            "Stress benchmarks under CPU/Memory/Disk saturation compared against state-of-the-art baselines.",
             [
-                "Amortização comprovada em regime de cauda p99.",
-                "Comportamento previsível sob saturação máxima de threads.",
+                "Proven amortization under p99 tail regime.",
+                "Predictable behavior under maximum thread saturation.",
             ],
         ),
         PageIndexSection(
             "§5",
             11,
-            "Limitações Práticas & Conclusão",
-            "Análise de casos de borda, overhead residual de metadados e diretrizes de integração.",
+            "Practical Limitations & Conclusion",
+            "Analysis of edge cases, residual metadata overhead, and integration guidelines.",
             [
-                "Não utilizar em cenários estritamente sequenciais onde a amortização introduz latência fixa.",
-                "Preservar alinhamento de cache lines para evitar false sharing.",
+                "Do not use in strictly sequential scenarios where amortization introduces fixed latency.",
+                "Preserve cache-line alignment to avoid false sharing.",
             ],
         ),
     ]
@@ -209,19 +203,19 @@ def synthesize_page_index(
         theorems.append(
             PaperTheorem(
                 "thm-group-commit-amortization",
-                "Teorema de Amortização de I/O por Group Commit",
-                "Para N transações concorrentes sincronizadas em lote único via fsync, o custo de barreira de hardware converge assintoticamente a O(1/N) por operação.",
+                "I/O Amortization Theorem via Group Commit",
+                "For N concurrent transactions synchronized in a single batch via fsync, the hardware barrier cost converges asymptotically to O(1/N) per operation.",
                 4,
                 "§3.2",
-                "Permite que sistemas WAL elevem throughput em mais de 40x mantendo garantia estrita de durabilidade ACID.",
-                formula="T_eff = (T_flush + N * T_mem) / N -> T_mem (quando N >> T_flush)",
+                "Lets WAL systems raise throughput by more than 40x while keeping a strict ACID durability guarantee.",
+                formula="T_eff = (T_flush + N * T_mem) / N -> T_mem (when N >> T_flush)",
             )
         )
         benchmarks.append(
             PaperBenchmark(
-                "Throughput WAL com fsync",
-                "fsync isolado por transação (~850 ops/s)",
-                "Group Commit batch 64 (42.000 ops/s)",
+                "WAL throughput with fsync",
+                "Isolated fsync per transaction (~850 ops/s)",
+                "Group Commit batch 64 (42,000 ops/s)",
                 "49.4x",
                 9,
             )
@@ -230,18 +224,18 @@ def synthesize_page_index(
         theorems.append(
             PaperTheorem(
                 "thm-rwlock-invalidation",
-                "Axioma de Degradação de Cache em RwLock",
-                "Sob regime onde a razão de escritas ultrapassa 15%, o tráfego de coerência de cache L3 em RwLock supera o overhead de Mutex com contadores compactos.",
+                "RwLock Cache-Degradation Axiom",
+                "Once the write ratio exceeds 15%, RwLock's L3 cache-coherence traffic exceeds Mutex's overhead with compact counters.",
                 5,
                 "§3.1",
-                "Projetos de alta concorrência em Rust/Go devem preferir canais SPSC ou sharding particionado antes de recorrer a RwLock global.",
+                "High-concurrency Rust/Go designs should prefer SPSC channels or partitioned sharding before reaching for a global RwLock.",
                 formula="Overhead = C_inval * N_readers * N_writers",
             )
         )
         benchmarks.append(
             PaperBenchmark(
-                "Throughput sob 32 threads de escrita",
-                "RwLock padrão (3.2k ops/s)",
+                "Throughput under 32 writer threads",
+                "Standard RwLock (3.2k ops/s)",
                 "Sharded Mutex / Lock-free (12.4k ops/s)",
                 "3.8x",
                 8,
@@ -251,18 +245,18 @@ def synthesize_page_index(
         theorems.append(
             PaperTheorem(
                 "thm-quorum-intersection",
-                "Teorema de Interseção de Quóruns (Majority Quorum)",
-                "Qualquer dois quóruns de tamanho Q = floor(N/2) + 1 em um cluster de N nós compartilham no mínimo um nó comum, garantindo visibilidade estrita do termo mais recente.",
+                "Quorum Intersection Theorem (Majority Quorum)",
+                "Any two quorums of size Q = floor(N/2) + 1 in an N-node cluster share at least one common node, guaranteeing strict visibility of the most recent term.",
                 4,
                 "§3.4",
-                "Fundamento do Raft/Paxos: dispensa sincronização de relógio físico para preservação de consenso de log linearizável.",
-                formula="|Q1 ∩ Q2| >= 1 para todo Q1, Q2 com tamanho (N/2)+1",
+                "The foundation of Raft/Paxos: removes the need for physical clock synchronization to preserve linearizable log consensus.",
+                formula="|Q1 ∩ Q2| >= 1 for every Q1, Q2 of size (N/2)+1",
             )
         )
         benchmarks.append(
             PaperBenchmark(
-                "Latência de Commit de Log (3 nós)",
-                "2-Phase Commit bloqueante (18.4ms)",
+                "Log commit latency (3 nodes)",
+                "Blocking 2-Phase Commit (18.4ms)",
                 "Raft Pipelined Commit (2.1ms)",
                 "8.7x",
                 10,
@@ -272,19 +266,19 @@ def synthesize_page_index(
         theorems.append(
             PaperTheorem(
                 "thm-sublinear-scaling",
-                "Princípio de Escalação Sublinear de Amdahl em Kernels Paralelos",
-                "A fração não paralelizada da topologia de memória limita assintoticamente o ganho de aceleração teórica máxima independentemente do número de cores disponíveis.",
+                "Amdahl Sublinear Scaling Principle in Parallel Kernels",
+                "The non-parallelizable fraction of the memory topology asymptotically caps the maximum theoretical speedup regardless of the number of available cores.",
                 6,
                 "§3.3",
-                "Eliminar seções críticas com estruturas lock-free desloca a barreira assintótica para a largura de banda da controladora de memória.",
+                "Eliminating critical sections with lock-free structures shifts the asymptotic barrier to the memory controller's bandwidth.",
                 formula="S_latency(s) = 1 / ((1 - p) + p/s)",
             )
         )
         benchmarks.append(
             PaperBenchmark(
-                "Throughput sob saturação de 64 Cores",
-                "Arquitetura com Global Lock (1.1x)",
-                "Arquitetura Particionada Lock-Free (38.6x)",
+                "Throughput under 64-core saturation",
+                "Global-Lock architecture (1.1x)",
+                "Lock-Free Partitioned architecture (38.6x)",
                 "35.1x",
                 9,
             )
@@ -294,7 +288,7 @@ def synthesize_page_index(
     one_line_takeaway = (
         f"{clean_abstract[:160]}..."
         if clean_abstract
-        else f"Análise matemática e empírica detalhada em {venue or 'computação avançada'}."
+        else f"Detailed mathematical and empirical analysis in {venue or 'advanced computing'}."
     )
 
     first_bench = benchmarks[0] if benchmarks else None
@@ -321,10 +315,10 @@ def synthesize_page_index(
             theorems=theorems,
             benchmarks=benchmarks,
             recommendedL2Evidence={
-                "claim": f"{first_thm.name if first_thm else 'Invariante do Paper'}: {first_thm.statement if first_thm else one_line_takeaway}",
+                "claim": f"{first_thm.name if first_thm else 'Paper Invariant'}: {first_thm.statement if first_thm else one_line_takeaway}",
                 "metric": f"{first_bench.paperResult} vs {first_bench.baseline} ({first_bench.gainMultiplier})"
                 if first_bench
-                else "Validação Teórica Formal",
+                else "Formal Theoretical Validation",
                 "surface": "benchmark",
                 "reproductionCommand": (
                     "cargo bench --bench wal"
@@ -334,7 +328,7 @@ def synthesize_page_index(
                     else None
                 ),
             },
-            dissectedAt=datetime.now(timezone.utc).isoformat(),
+            dissectedAt=datetime.now(UTC).isoformat(),
         )
     )
 
@@ -342,16 +336,16 @@ def synthesize_page_index(
 async def paper_dissect(
     paper_url_or_id: str, title_hint: str = "", abstract_hint: str = ""
 ) -> dict:
-    """Disseca um paper acadêmico (arXiv, DOI, URL ou Título) no formato DeepTutor PageIndex.
+    """Dissects an academic paper (arXiv, DOI, URL, or title) in the DeepTutor PageIndex format.
 
-    Extrai o índice estruturado de seções/páginas, teoremas matemáticos,
-    métricas empíricas de benchmarks, citações cirúrgicas [Autor et al., Ano,
-    pág. X, §Y] e sugestão de evidência L2 auditável.
+    Extracts the structured section/page index, mathematical theorems,
+    empirical benchmark metrics, surgical citations [Author et al., Year,
+    p. X, §Y], and a suggested auditable L2 evidence entry.
 
     Args:
-        paper_url_or_id: URL do paper, arXiv ID ou DOI.
-        title_hint: Título opcional para enriquecer a busca caso a URL seja incompleta.
-        abstract_hint: Resumo opcional para aceleração da análise.
+        paper_url_or_id: Paper URL, arXiv ID, or DOI.
+        title_hint: Optional title to enrich the search if the URL is incomplete.
+        abstract_hint: Optional abstract to speed up the analysis.
     """
     arxiv_id = _extract_arxiv_id(paper_url_or_id)
 
@@ -394,9 +388,7 @@ async def paper_dissect(
                 authors = [a for a in authors if a] or authors
                 year = str(parsed.get("publication_year") or year)
                 venue = _clean_text(
-                    (parsed.get("primary_location") or {})
-                    .get("source", {})
-                    .get("display_name")
+                    (parsed.get("primary_location") or {}).get("source", {}).get("display_name")
                     or "arXiv.org"
                 )
                 if not abstract and parsed.get("abstract_inverted_index"):
@@ -406,7 +398,7 @@ async def paper_dissect(
                             words.append((p, w))
                     words.sort(key=lambda w: w[0])
                     abstract = " ".join(w for _, w in words)
-        except Exception:  # noqa: BLE001
+        except Exception:
             try:
                 async with httpx.AsyncClient(timeout=10.0, headers=_HEADERS) as client:
                     resp = await client.get(final_url)
@@ -434,17 +426,13 @@ async def paper_dissect(
                 if authors_match:
                     authors = [
                         _clean_text(a)
-                        for a in re.sub(r"<[^>]+>", "", authors_match.group(1)).split(
-                            ","
-                        )
+                        for a in re.sub(r"<[^>]+>", "", authors_match.group(1)).split(",")
                         if _clean_text(a)
                     ]
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
 
-    dissection = synthesize_page_index(
-        title, abstract, authors, year, venue, final_url, arxiv_id
-    )
+    dissection = synthesize_page_index(title, abstract, authors, year, venue, final_url, arxiv_id)
     save_dissected_paper(dissection)
 
     return {"ok": True, "dissection": dissection}

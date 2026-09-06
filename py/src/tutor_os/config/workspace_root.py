@@ -12,9 +12,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-_REPO_ROOT = Path(
-    os.environ.get("TUTOR_OS_ROOT") or Path(__file__).resolve().parents[3]
-)
+_REPO_ROOT = Path(os.environ.get("TUTOR_OS_ROOT") or Path(__file__).resolve().parents[3])
 
 # Lives at the repo root, outside workspace/ — if the workspace is relocated, the
 # pointer to it can't live inside the workspace itself.
@@ -29,7 +27,7 @@ def _read_override() -> str | None:
         raw = json.loads(_OVERRIDE_PATH.read_text(encoding="utf-8"))
         path = raw.get("path")
         return path.strip() if isinstance(path, str) and path.strip() else None
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
 
 
@@ -69,9 +67,7 @@ def get_workspace_root_info() -> WorkspaceRootInfo:
 def set_workspace_root_override(new_path: str) -> WorkspaceRootInfo:
     """Only takes effect after a server restart — WORKSPACE_ROOT is frozen at boot in storage.py."""
     abs_path = str(Path(new_path.strip()).resolve())
-    _OVERRIDE_PATH.write_text(
-        json.dumps({"path": abs_path}, indent=2), encoding="utf-8"
-    )
+    _OVERRIDE_PATH.write_text(json.dumps({"path": abs_path}, indent=2), encoding="utf-8")
     return get_workspace_root_info()
 
 

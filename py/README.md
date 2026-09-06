@@ -23,6 +23,10 @@ Alternatively, `uv run tutor-os-py` runs the packaged entry point
 Set `TUTOR_OS_ROOT` to point at the repo root if running from somewhere other
 than the default relative location (`py/`'s parent).
 
+Copy `.env.example` to `.env` and fill in a model gateway key before running
+(there's no dotenv loader wired in — export it into your shell/process
+manager, e.g. `export $(cat .env | xargs)`).
+
 ## Status
 
 Ported and verified end-to-end (live, against the real model gateway):
