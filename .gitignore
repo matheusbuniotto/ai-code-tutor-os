@@ -8,3 +8,5 @@ __pycache__/
 *.db-wal
 *.sqlite*
 .DS_Store
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
