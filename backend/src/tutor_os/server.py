@@ -1,7 +1,7 @@
 """Port of src/server.ts — tracer-bullet pass.
 
 Ships the core chat loop end-to-end (status, config, threads, chat SSE,
-workspace, memory overview) against the existing ui/ frontend unmodified.
+workspace, memory overview) against the existing frontend/ unmodified.
 Endpoints backed by the not-yet-ported specialist agents (research panel,
 rescue, arcs/assignment mutation panels, inbox, experiments) are left for the
 next incremental pass — see tutor_os.tools.delegation for the flagged gap.
@@ -98,7 +98,7 @@ from tutor_os.tools.workspace import (
 
 logger = logging.getLogger("tutor_os")
 
-UI_DIR = PROJECT_ROOT / "ui"
+UI_DIR = PROJECT_ROOT / "frontend"
 AGENTS = {
     "tutor": tutor_agent,
     "assigner": assigner_agent,

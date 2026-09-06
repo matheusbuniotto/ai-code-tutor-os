@@ -3,7 +3,7 @@
 ## Setup
 
 ```bash
-cd py
+cd backend
 uv sync
 cp .env.example .env   # fill in a model gateway key
 uv run uvicorn tutor_os.server:app --port 4115 --reload
@@ -11,11 +11,11 @@ uv run uvicorn tutor_os.server:app --port 4115 --reload
 
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). Don't `pip
 install` into a bare interpreter — everything goes through `uv` so the lock
-file (`py/uv.lock`) stays authoritative.
+file (`backend/uv.lock`) stays authoritative.
 
 ## Before opening a PR
 
-Run from `py/`:
+Run from `backend/`:
 
 ```bash
 uv run ruff check .
@@ -44,12 +44,12 @@ fix the underlying complexity instead of adding to the ignore list.
    placeholder directly inside an f-string body, write it as quadruple-brace
    (`{{{{LEARNER_NAME}}}}`) — Python's f-string parser collapses `{{`/`}}`
    to a literal single brace before `personalize()` ever sees the string, so
-   the double-brace form silently never matches. See `py/NEXT-PHASES.md`'s
+   the double-brace form silently never matches. See `backend/NEXT-PHASES.md`'s
    "Migration gotchas" for the full writeup of a bug this caused.
 4. A single-prompt persona with no autonomous tool loop of its own is
-   usually a better fit as a **Skill** (`py/.agents/skills/<name>/SKILL.md`,
+   usually a better fit as a **Skill** (`backend/.agents/skills/<name>/SKILL.md`,
    loaded into the Tutor's context via `load_capability`) than a full
-   `Agent` — see `py/README.md`'s "Agents vs. Skills" section for the
+   `Agent` — see `backend/README.md`'s "Agents vs. Skills" section for the
    criteria.
 
 ## Reporting issues
