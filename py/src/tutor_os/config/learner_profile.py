@@ -15,7 +15,7 @@ from tutor_os.storage import WORKSPACE_ROOT
 
 @dataclass
 class LearnerProfile:
-    name: str = "você"
+    name: str = "you"
     # Short clinical/cognitive label (e.g. "GAI elevado, percentil alto, 2E: AH/SD..."). Empty = omitted from prompts.
     cognitive_tag: str = ""
     # Free-form detail (report, indices, percentiles) injected into working memory when
@@ -50,8 +50,8 @@ def _load_learner_profile() -> LearnerProfile:
     try:
         raw = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
         return replace(DEFAULT_PROFILE, **_normalize_keys(raw))
-    except Exception as err:  # noqa: BLE001 - mirror the TS catch-all fallback
-        print(f"Erro ao ler LEARNER_PROFILE.json, usando perfil genérico: {err}")
+    except Exception as err:
+        print(f"Error reading LEARNER_PROFILE.json, using generic profile: {err}")
         return DEFAULT_PROFILE
 
 

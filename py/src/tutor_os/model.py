@@ -33,7 +33,7 @@ CURATED_MODELS: list[CuratedModel] = [
     CuratedModel(
         "muse-spark-1.2-contributor",
         "Muse Spark 1.2 Contributor",
-        "OpenCode Go (Recomendado)",
+        "OpenCode Go (Recommended)",
     ),
     CuratedModel("deepseek-v4-flash", "DeepSeek V4 Flash", "OpenCode / DeepSeek"),
     CuratedModel("gpt-4o", "GPT-4o", "OpenAI"),
@@ -81,6 +81,4 @@ def update_runtime_config(
 
 def get_model(model_name: str | None = None) -> OpenAIChatModel:
     chosen = model_name or _active_model_name
-    return OpenAIChatModel(
-        chosen, provider=OpenAIProvider(base_url=_base_url, api_key=_api_key)
-    )
+    return OpenAIChatModel(chosen, provider=OpenAIProvider(base_url=_base_url, api_key=_api_key))

@@ -17,66 +17,66 @@ def assignment_generate(
     mutate_phase: str,
     explain_phase: str,
 ) -> dict:
-    """Gera um desafio de engenharia estruturado (Assignment Engine).
+    """Generates a structured engineering challenge (Assignment Engine).
 
-    Calibrado para expor lacunas de julgamento técnico. Segue o protocolo:
-    Prever ➔ Medir ➔ Mutar ➔ Explicar trade-offs.
+    Calibrated to expose technical-judgment gaps. Follows the protocol:
+    Predict -> Measure -> Mutate -> Explain trade-offs.
 
     Args:
-        project_slug: Slug do projeto ativo.
-        title: Título do desafio de engenharia.
-        arc_id: ID do arco de capacidade correspondente (customizável via ARCS.json).
-        targeted_gap: Lacuna de capacidade específica a ser exercitada.
-        predict_phase: Perguntas de predição antes de rodar.
-        implementation_instrument: Código ou instrumento de teste mínimo para executar.
-        measure_phase: Comando exato de medição e métricas a coletar.
-        mutate_phase: Variações de parâmetro para estressar o sistema.
-        explain_phase: Perguntas de julgamento e defesa de arquitetura.
+        project_slug: Slug of the active project.
+        title: Title of the engineering challenge.
+        arc_id: ID of the matching capability arc (customizable via ARCS.json).
+        targeted_gap: Specific capability gap to exercise.
+        predict_phase: Prediction questions to answer before running anything.
+        implementation_instrument: Minimal code or test instrument to run.
+        measure_phase: Exact measurement command and metrics to collect.
+        mutate_phase: Parameter variations to stress the system.
+        explain_phase: Judgment questions and architecture defense.
     """
     project_dir = WORKSPACE_ROOT / project_slug
     project_dir.mkdir(parents=True, exist_ok=True)
 
     arcs = read_arcs_data()
     found_arc = next((a for a in arcs if a["id"] == arc_id), None)
-    arc_title = found_arc["title"] if found_arc else f"Arco: {arc_id}"
+    arc_title = found_arc["title"] if found_arc else f"Arc: {arc_id}"
 
     markdown = f"""# Engineering Assignment: {title}
-**Arco:** {arc_title}
-**Lacuna Alvo:** {targeted_gap}
-**Princípio:** *A implementação é apenas o instrumento. Seu julgamento de engenharia é o desafio.*
+**Arc:** {arc_title}
+**Targeted Gap:** {targeted_gap}
+**Principle:** *The implementation is only the instrument. Your engineering judgment is the challenge.*
 
 ---
 
-## 1. Fase de Predição (Antes de Rodar)
-> *Formule suas hipóteses antes de olhar qualquer gráfico ou benchmark.*
+## 1. Prediction Phase (Before Running)
+> *Form your hypotheses before looking at any graph or benchmark.*
 
 {predict_phase}
 
 ---
 
-## 2. Instrumento de Execução
+## 2. Execution Instrument
 ```
 {implementation_instrument}
 ```
 
 ---
 
-## 3. Fase de Medição (Evidência Empírica)
-> *Execute os comandos de teste e registre os números reais.*
+## 3. Measurement Phase (Empirical Evidence)
+> *Run the test commands and record the real numbers.*
 
 {measure_phase}
 
 ---
 
-## 4. Fase de Mutação (Escalar e Estressar)
-> *Varie os parâmetros para encontrar o ponto de inflexão e colapso.*
+## 4. Mutation Phase (Scale and Stress)
+> *Vary the parameters to find the inflection/collapse point.*
 
 {mutate_phase}
 
 ---
 
-## 5. Fase de Explicação & Julgamento (Defesa)
-> *Explique a física do sistema com base nos trade-offs observados.*
+## 5. Explanation & Judgment Phase (Defense)
+> *Explain the system's physics based on the observed trade-offs.*
 
 {explain_phase}
 """
@@ -88,8 +88,8 @@ def assignment_generate(
 
 
 def assignment_read(project_slug: str) -> dict:
-    """Lê o arquivo ASSIGNMENT.md do projeto ativo para revisão ou continuação do desafio."""
+    """Reads the active project's ASSIGNMENT.md file for review or continuation of the challenge."""
     file_path = WORKSPACE_ROOT / project_slug / "ASSIGNMENT.md"
     if not file_path.exists():
-        return {"exists": False, "content": "Nenhum ASSIGNMENT.md ativo neste projeto."}
+        return {"exists": False, "content": "No active ASSIGNMENT.md in this project."}
     return {"exists": True, "content": file_path.read_text(encoding="utf-8")}

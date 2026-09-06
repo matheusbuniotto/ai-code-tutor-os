@@ -7,14 +7,14 @@ Protects focus and avoids dopaminergic collapse / dispersion.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from tutor_os.storage import WORKSPACE_ROOT
 
 GATE_HISTORY_PATH = WORKSPACE_ROOT / "_meta" / "GATE_HISTORY.jsonl"
 
-Context = Literal["trabalho", "estudo_pessoal"]
+Context = Literal["work", "personal_study"]
 Verdict = Literal["GO", "DELEGATE_AUTOMATE_ASYNC", "POSTPONE_RECORD"]
 
 
@@ -30,72 +30,66 @@ def gate_check(
     personal_demand_and_no_abandon_trap: bool = False,
     impostor_doubt_expressed: str | None = None,
 ) -> dict:
-    """Executa o Filtro de Portões (3-Gate Leverage Filter) para Trabalho ou Estudo/Projeto Pessoal.
+    """Runs the 3-Gate Leverage Filter for Work or Personal Study/Project.
 
-    Retorna o veredito estruturado (GO, DELEGATE_AUTOMATE_ASYNC, POSTPONE_RECORD),
-    justificativas e âncora anti-impostor baseada em evidências concretas quando aplicável.
+    Returns the structured verdict (GO, DELEGATE_AUTOMATE_ASYNC, POSTPONE_RECORD),
+    rationale, and an anti-impostor anchor grounded in concrete evidence when applicable.
 
     Args:
-        context: Contexto da demanda: trabalho corporativo (Tech Lead) ou estudo/lab pessoal.
-        topic: Tema ou ideia a ser avaliada.
-        work_high_abstraction: Trabalho Portão 1: arquitetura de IA, schema de dados, confiabilidade ou avaliação?
-        work_squad_multiplier: Trabalho Portão 2: vira playbook, template reutilizável ou guardrail de CI/CD?
-        work_career_moat: Trabalho Portão 3: gera ativo público (case study/RFC) com demanda 2027-2030?
-        personal_cluster_deepening: Estudo Portão 1: aprofunda cluster/projeto existente (não é novidade do zero)?
-        personal_tracer_bullet_fit: Estudo Portão 2: cabe em um tracer bullet ponta-a-ponta em uma sessão focada?
-        personal_topology_before_syntax: Estudo Portão 3: primeiro passo é mapear invariantes no papel?
-        personal_demand_and_no_abandon_trap: Estudo Portão 4: demanda alta/estável 2027-2030 e sem histórico de abandono similar?
-        impostor_doubt_expressed: Dúvida de competência expressada pelo usuário, se houver.
+        context: Context of the demand: corporate work (Tech Lead) or personal study/lab.
+        topic: Theme or idea being evaluated.
+        work_high_abstraction: Work Gate 1: AI architecture, data schema, reliability, or evaluation?
+        work_squad_multiplier: Work Gate 2: becomes a playbook, reusable template, or CI/CD guardrail?
+        work_career_moat: Work Gate 3: produces a public asset (case study/RFC) with demand through 2027-2030?
+        personal_cluster_deepening: Study Gate 1: deepens an existing cluster/project (not a from-scratch novelty)?
+        personal_tracer_bullet_fit: Study Gate 2: fits in an end-to-end tracer bullet within one focused session?
+        personal_topology_before_syntax: Study Gate 3: is the first step mapping invariants on paper?
+        personal_demand_and_no_abandon_trap: Study Gate 4: high/stable demand through 2027-2030, with no history of similar abandonment?
+        impostor_doubt_expressed: Competency doubt expressed by the user, if any.
     """
     gates_summary: dict[str, bool] = {}
 
-    if context == "trabalho":
-        gates_summary["1_arquitetura_alto_nivel"] = work_high_abstraction
-        gates_summary["2_multiplicador_squad"] = work_squad_multiplier
-        gates_summary["3_ativo_carreira_2027_2030"] = work_career_moat
+    if context == "work":
+        gates_summary["1_high_level_architecture"] = work_high_abstraction
+        gates_summary["2_squad_multiplier"] = work_squad_multiplier
+        gates_summary["3_career_asset_2027_2030"] = work_career_moat
 
         if work_high_abstraction or work_squad_multiplier or work_career_moat:
             verdict: Verdict = "GO"
-            rationale = (
-                "Passou em pelo menos 1 portão de trabalho de alto valor agregado."
-            )
+            rationale = "Passed at least 1 high-value-add work gate."
         else:
             verdict = "DELEGATE_AUTOMATE_ASYNC"
-            rationale = "Não passou nos portões de alta alavancagem. Delegar, automatizar ou tratar assincronamente."
+            rationale = "Did not pass the high-leverage gates. Delegate, automate, or handle asynchronously."
     else:
-        gates_summary["1_aprofundamento_cluster"] = personal_cluster_deepening
-        gates_summary["2_cabe_tracer_bullet"] = personal_tracer_bullet_fit
-        gates_summary["3_topologia_antes_sintaxe"] = personal_topology_before_syntax
-        gates_summary["4_demanda_futura_sem_abandono"] = (
-            personal_demand_and_no_abandon_trap
-        )
+        gates_summary["1_cluster_deepening"] = personal_cluster_deepening
+        gates_summary["2_fits_tracer_bullet"] = personal_tracer_bullet_fit
+        gates_summary["3_topology_before_syntax"] = personal_topology_before_syntax
+        gates_summary["4_future_demand_no_abandonment"] = personal_demand_and_no_abandon_trap
 
-        passed_count = sum(
-            [
-                personal_cluster_deepening,
-                personal_tracer_bullet_fit,
-                personal_topology_before_syntax,
-                personal_demand_and_no_abandon_trap,
-            ]
-        )
+        passed_count = sum([
+            personal_cluster_deepening,
+            personal_tracer_bullet_fit,
+            personal_topology_before_syntax,
+            personal_demand_and_no_abandon_trap,
+        ])
         if passed_count >= 3:
             verdict = "GO"
-            rationale = f"Passou em {passed_count}/4 portões do lab pessoal. Aprovado para execução na Pirâmide Invertida."
+            rationale = f"Passed {passed_count}/4 personal-lab gates. Approved for execution in the Inverted Pyramid."
         else:
             verdict = "POSTPONE_RECORD"
-            rationale = f"Passou em apenas {passed_count}/4 portões. Anotar no INBOX/ideias e adiar para proteger foco."
+            rationale = f"Only passed {passed_count}/4 gates. Note it in INBOX/ideas and postpone to protect focus."
 
     anti_impostor_anchor = None
     if impostor_doubt_expressed:
         anti_impostor_anchor = (
-            "Âncora de realidade: Seu perfil cognitivo aprende invariantes mais rápido que a média. "
-            "Sua vantagem assimétrica é a síntese entre arquitetura de IA, dados e ROI de negócio, não o acúmulo de sintaxe isolada."
+            "Reality anchor: your cognitive profile learns invariants faster than average. "
+            "Your asymmetric advantage is synthesizing AI architecture, data, and business ROI — not accumulating isolated syntax."
         )
 
     try:
         GATE_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "topic": topic,
             "context": context,
             "verdict": verdict,
@@ -104,7 +98,7 @@ def gate_check(
         }
         with GATE_HISTORY_PATH.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except Exception:  # noqa: BLE001 - non-blocking write, mirrors the TS swallow
+    except Exception:
         pass
 
     return {

@@ -48,19 +48,20 @@ def episodes_append(
     connections: list[str],
     blockages: str | None = None,
 ) -> dict:
-    """[SOMENTE HARVESTER] Registra o episódio da sessão na memória episódica (JSONL).
+    """[HARVESTER ONLY] Records the session episode in episodic memory (JSONL).
 
-    Chame uma única vez ao fechar a sessão.
+    Call exactly once when closing the session.
 
     Args:
-        date: AAAA-MM-DD.
-        project_slug: Slug do projeto.
-        topic: Tópico da sessão.
-        phase_reached: Fase alcançada (0-4).
-        status: em-andamento | concluido | pausado | abandonado.
-        extracted: 1-3 linhas: o que ele efetivamente entendeu/construiu.
-        connections: conexões com outros temas; inclua >=1 especulativa nomeada.
-        blockages: bloqueios observados, se houver.
+        date: YYYY-MM-DD.
+        project_slug: Project slug.
+        topic: Session topic.
+        phase_reached: Phase reached (0-4).
+        status: em-andamento | concluido | pausado | abandonado (kept as the
+            existing EPISODES.jsonl status values — see Status literal above).
+        extracted: 1-3 lines: what they actually understood/built.
+        connections: connections to other topics; include >=1 named speculative one.
+        blockages: observed blockages, if any.
     """
     episodes = read_episodes()
     episode: Episode = {
@@ -80,13 +81,13 @@ def episodes_append(
 
 
 def episodes_recent(limit: int = 5, project_slug: str | None = None) -> dict:
-    """Step 0 de sessão: lista os últimos N episódios (mais recentes primeiro).
+    """Session step 0: lists the last N episodes (most recent first).
 
-    Use junto de state_read para retomar contexto sem perguntar "onde paramos".
+    Use together with state_read to resume context without asking "where did we leave off".
 
     Args:
-        limit: Quantos episódios retornar (1-20).
-        project_slug: Filtra por projeto.
+        limit: How many episodes to return (1-20).
+        project_slug: Filter by project.
     """
     episodes = read_episodes()
     if project_slug:
@@ -101,7 +102,7 @@ def episodes_delete(
     project_slug: str | None = None,
     topic: str | None = None,
 ) -> dict:
-    """Exclui um episódio específico da memória episódica por index ou por data e project_slug."""
+    """Deletes a specific episode from episodic memory by index, or by date and project_slug."""
     episodes = read_episodes()
     if index is not None and 0 <= index < len(episodes):
         filtered = [e for i, e in enumerate(episodes) if i != index]
@@ -109,9 +110,7 @@ def episodes_delete(
 
         def keep(e: Episode) -> bool:
             if e["date"] == date and e["projectSlug"] == project_slug:
-                if topic and e["topic"] != topic:
-                    return True
-                return False
+                return bool(topic and e["topic"] != topic)
             return True
 
         filtered = [e for e in episodes if keep(e)]
@@ -124,15 +123,15 @@ def episodes_delete(
 
 
 def episodes_clear() -> dict:
-    """Limpa completamente todos os registros da memória episódica."""
+    """Completely clears all episodic-memory records."""
     write_episodes([])
     return {"ok": True}
 
 
 def episodes_search(query: str) -> dict:
-    """Busca episódios passados por palavra-chave (tópico, extração ou conexões).
+    """Searches past episodes by keyword (topic, extracted content, or connections).
 
-    Use para resgatar "eu já vi isso antes" entre domínios.
+    Use to recall "I've seen this before" across domains.
     """
     q = query.lower()
     episodes = read_episodes()

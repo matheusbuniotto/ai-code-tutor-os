@@ -20,6 +20,8 @@ def _rebuild_library_index() -> dict:
     for entry in sorted(WORKSPACE_ROOT.iterdir()):
         if not entry.is_dir() or entry.name.startswith("_"):
             continue
+        # Filename kept as-is (on-disk artifact convention, not translated —
+        # see py/README.md i18n scope note / delegation.py's sibling files).
         note_path = entry / "04-arquitetura-note.md"
         if note_path.exists():
             content = note_path.read_text(encoding="utf-8")
@@ -28,22 +30,22 @@ def _rebuild_library_index() -> dict:
                 if line.startswith("# "):
                     title = line[2:].strip()
                     break
-            notes.append(
-                {
-                    "projectSlug": entry.name,
-                    "title": title,
-                    "path": f"{entry.name}/04-arquitetura-note.md",
-                    "snippet": content[:300].replace("\n", " "),
-                }
-            )
+            notes.append({
+                "projectSlug": entry.name,
+                "title": title,
+                "path": f"{entry.name}/04-arquitetura-note.md",
+                "snippet": content[:300].replace("\n", " "),
+            })
 
-    markdown_index = "# Living Architecture Library\n\n*Coleção permanente de notas de arquitetura e invariantes de sistemas (Fase 4 — Pirâmide Invertida).*\n\n"
+    markdown_index = "# Living Architecture Library\n\n*Permanent collection of architecture notes and system invariants (Phase 4 — Inverted Pyramid).*\n\n"
     if not notes:
-        markdown_index += "*(Nenhuma nota de arquitetura consolidada ainda. Complete a Fase 4 de um projeto para indexar aqui.)*\n"
+        markdown_index += "*(No architecture notes consolidated yet. Complete Phase 4 of a project to index it here.)*\n"
     else:
-        markdown_index += "| Projeto | Título | Caminho |\n|---|---|---|\n"
+        markdown_index += "| Project | Title | Path |\n|---|---|---|\n"
         for n in notes:
-            markdown_index += f"| `{n['projectSlug']}` | **{n['title']}** | [{n['path']}](../{n['path']}) |\n"
+            markdown_index += (
+                f"| `{n['projectSlug']}` | **{n['title']}** | [{n['path']}](../{n['path']}) |\n"
+            )
 
     LIBRARY_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
     LIBRARY_INDEX_PATH.write_text(markdown_index, encoding="utf-8")
@@ -52,9 +54,9 @@ def _rebuild_library_index() -> dict:
 
 
 def library_index() -> dict:
-    """Lista e indexa todas as Notas de Arquitetura de 1 página criadas na Fase 4 dos projetos.
+    """Lists and indexes all 1-page Architecture Notes created in Phase 4 of the projects.
 
-    Retorna os ativos catalogados na Living Architecture Library com seus invariantes e trade-offs.
+    Returns the assets cataloged in the Living Architecture Library with their invariants and trade-offs.
     """
     return _rebuild_library_index()
 
@@ -68,54 +70,55 @@ def library_save_note(
     hidden_traps: str,
     proof_artifact: str,
 ) -> dict:
-    """Salva uma Nota de Arquitetura de 1 página (Fase 4 da Pirâmide Invertida).
+    """Saves a 1-page Architecture Note (Phase 4 of the Inverted Pyramid).
 
-    Exige formato estrito: Invariantes Centrais | Quando Usar vs Não Usar | Armadilhas e Falhas.
+    Requires a strict format: Core Invariants | When to Use vs. Not Use | Traps and Failures.
 
     Args:
-        project_slug: Slug do projeto (minúsculo, hífens).
-        title: Título da nota.
-        invariants: Invariantes fundamentais e modelo de dados/execução.
-        when_to_use: Cenários ideais de aplicação.
-        when_not_to_use: Cenários de contra-indicação ou overkill.
-        hidden_traps: Armadilhas, limites de escala, falhas de concorrência ou custos ocultos.
-        proof_artifact: Comando ou teste que comprova a intuição física obtida.
+        project_slug: Project slug (lowercase, hyphens).
+        title: Note title.
+        invariants: Fundamental invariants and data/execution model.
+        when_to_use: Ideal application scenarios.
+        when_not_to_use: Contra-indication or overkill scenarios.
+        hidden_traps: Traps, scale limits, concurrency failures, or hidden costs.
+        proof_artifact: Command or test that proves the physical intuition gained.
     """
     project_dir = WORKSPACE_ROOT / project_slug
     project_dir.mkdir(parents=True, exist_ok=True)
 
     from datetime import date
 
-    note_content = f"""# Nota de Arquitetura: {title}
-*Fase 4 — Síntese da Pirâmide Invertida | Data: {date.today().isoformat()}*
+    note_content = f"""# Architecture Note: {title}
+*Phase 4 — Inverted Pyramid Synthesis | Date: {date.today().isoformat()}*
 
 ---
 
-## 1. Invariantes Centrais (First Principles)
+## 1. Core Invariants (First Principles)
 {invariants}
 
 ---
 
-## 2. Quando Usar vs. Quando NÃO Usar
-### ✅ Quando Usar
+## 2. When to Use vs. When NOT to Use
+### ✅ When to Use
 {when_to_use}
 
-### ❌ Quando NÃO Usar (Contra-indicações)
+### ❌ When NOT to Use (Contra-indications)
 {when_not_to_use}
 
 ---
 
-## 3. Armadilhas Ocultas & Limites Físicos (Break Edges Findings)
+## 3. Hidden Traps & Physical Limits (Break Edges Findings)
 {hidden_traps}
 
 ---
 
-## 4. Artefato de Comprovação
+## 4. Proof Artifact
 ```bash
 {proof_artifact}
 ```
 """
 
+    # Filename kept as-is (on-disk artifact convention shared with session.py).
     note_path = project_dir / "04-arquitetura-note.md"
     note_path.write_text(note_content, encoding="utf-8")
 
