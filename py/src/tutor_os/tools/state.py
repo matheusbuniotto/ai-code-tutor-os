@@ -15,45 +15,45 @@ from tutor_os.storage import WORKSPACE_ROOT
 PROFILE_PATH = WORKSPACE_ROOT / "_meta" / "PROFILE.md"
 
 Section = Literal[
-    "niveis-por-stack",
-    "facil-boilerplate",
-    "padroes-de-bloqueio",
-    "politica-rewards",
-    "microvitorias",
+    "levels-by-stack",
+    "easy-boilerplate",
+    "blockage-patterns",
+    "rewards-policy",
+    "microvictories",
 ]
 
 _SECTIONS: tuple[Section, ...] = (
-    "niveis-por-stack",
-    "facil-boilerplate",
-    "padroes-de-bloqueio",
-    "politica-rewards",
-    "microvitorias",
+    "levels-by-stack",
+    "easy-boilerplate",
+    "blockage-patterns",
+    "rewards-policy",
+    "microvictories",
 )
 
 
 def state_read() -> dict:
-    """Step 0 obrigatório de sessão: retorna o perfil dinâmico do aprendiz.
+    """Mandatory session Step 0: returns the learner's dynamic profile.
 
-    (níveis, padrões de bloqueio, rewards, microvitórias). Combine com working
-    memory. NUNCA pergunte 'onde paramos' — este arquivo responde.
+    (levels, blockage patterns, rewards, microvictories). Combine with working
+    memory. NEVER ask 'where did we leave off' — this file answers that.
     """
     if PROFILE_PATH.exists():
         profile = PROFILE_PATH.read_text(encoding="utf-8")
     else:
-        profile = "# PROFILE\n(vazio — primeira sessão; calibre antes de criar spec)"
+        profile = "# PROFILE\n(empty — first session; calibrate before creating a spec)"
     return {"profile": profile}
 
 
 def state_update(section: Section, content: str) -> dict:
-    """[SOMENTE HARVESTER] Atualiza uma seção do perfil dinâmico.
+    """[HARVESTER ONLY] Updates a section of the dynamic profile.
 
-    Substitui a seção inteira pelo novo conteúdo.
+    Replaces the entire section with the new content.
     """
     if PROFILE_PATH.exists():
         body = PROFILE_PATH.read_text(encoding="utf-8")
     else:
         sections_block = "\n".join(f"## {s}\n" for s in _SECTIONS)
-        body = f"# PROFILE (dinâmico)\n\n{sections_block}"
+        body = f"# PROFILE (dynamic)\n\n{sections_block}"
 
     header = f"## {section}"
     pattern = re.compile(rf"{re.escape(header)}\n[\s\S]*?(?=\n## |$)")

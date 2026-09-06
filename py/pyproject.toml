@@ -3,7 +3,8 @@ name = "tutor-os-py"
 version = "0.1.0"
 description = "Tutor OS backend — pydantic-ai 2.0 port of src/mastra + src/server.ts"
 readme = "README.md"
-authors = []
+license = "MIT"
+authors = [{ name = "Matheus Buniotto" }]
 requires-python = ">=3.12"
 dependencies = [
     "pydantic-ai>=1.0.0",
@@ -13,8 +14,14 @@ dependencies = [
     "pydantic-ai-harness[skills]>=0.27.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/matheusbuniotto/aio-learn"
+
 [project.scripts]
 tutor-os-py = "tutor_os:main"
+
+[dependency-groups]
+dev = ["ruff>=0.16.6"]
 
 [tool.uv.build-backend]
 module-name = "tutor_os"
@@ -26,9 +33,9 @@ build-backend = "uv_build"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-# PLR1702 (too-many-nested-blocks) is a preview rule; agent prompt/instruction
-# strings are long natural-language prose (often Portuguese) by design, so
-# E501 is intentionally excluded below rather than reflowed.
+# too-many-nested-blocks is a preview rule; agent prompt/instruction strings
+# are long natural-language prose by design, so E501 is intentionally
+# excluded below rather than reflowed.
 preview = true
 
 [tool.ruff.lint]
@@ -44,12 +51,12 @@ select = [
     "C4",      # comprehensions
     "RUF",     # ruff-specific
     "C90",     # mccabe cyclomatic complexity
-    "PLR0911", # too many return statements
-    "PLR0912", # too many branches
-    "PLR0913", # too many arguments
-    "PLR0915", # too many statements
-    "PLR1702", # too many nested blocks
-    "PLR2004", # magic value comparison
+    "too-many-return-statements",
+    "too-many-branches",
+    "too-many-arguments",
+    "too-many-statements",
+    "too-many-nested-blocks",
+    "magic-value-comparison",
 ]
 
 [tool.ruff.lint.mccabe]
@@ -66,7 +73,25 @@ max-nested-blocks = 4
 # tools/*.py functions are pydantic-ai Tool schemas: their kwargs ARE the
 # LLM-facing tool-call interface, so argument count reflects that contract,
 # not internal complexity. PLR0913 stays enforced everywhere else.
-"src/tutor_os/tools/*.py" = ["PLR0913"]
+"src/tutor_os/tools/*.py" = ["too-many-arguments"]
+
+# Pre-existing complexity/magic-value debt, accepted backlog (see
+# py/NEXT-PHASES.md's "Migration gotchas" section) — fix opportunistically
+# if a future change touches these functions for real, rather than as a
+# drive-by refactor here.
+"src/tutor_os/tools/research.py" = [
+    "complex-structure",
+    "too-many-branches",
+    "too-many-nested-blocks",
+    "magic-value-comparison",
+]
+"src/tutor_os/tools/page_index.py" = ["complex-structure", "too-many-nested-blocks"]
+"src/tutor_os/tools/meta.py" = [
+    "complex-structure",
+    "too-many-branches",
+    "too-many-statements",
+]
+"src/tutor_os/tools/gate.py" = ["magic-value-comparison"]
 
 [tool.ty.rules]
 # Start permissive; tighten once the full agent roster is ported.

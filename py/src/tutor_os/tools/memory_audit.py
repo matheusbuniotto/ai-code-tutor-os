@@ -52,7 +52,7 @@ def read_evidences() -> list[L2Evidence]:
                     "sourceL1Id": "ep-init-01",
                     "sourceRef": "workspace/eda-for-ai-rust/benchmarks/mutex_vs_rwlock.rs",
                     "surface": "benchmark",
-                    "claim": "Sob alta contenção de escrita (32 threads), RwLock tem throughput 3.8x inferior a Mutex por overhead de cache invalidation do leitor/escritor.",
+                    "claim": "Under high write contention (32 threads), RwLock has 3.8x lower throughput than Mutex due to reader/writer cache-invalidation overhead.",
                     "metric": "Throughput: 12.4k ops/s (Mutex) vs 3.2k ops/s (RwLock)",
                     "reproductionCommand": "cargo bench --bench lock_contention",
                     "arcId": "arc1_behavior",
@@ -60,22 +60,22 @@ def read_evidences() -> list[L2Evidence]:
                     "verifiedBy": "reviewer",
                     "confidence": 1.0,
                     "verifiedAt": now,
-                    "notes": "Auditado com perfil de latência e contadores de cache L3.",
+                    "notes": "Audited with a latency profile and L3 cache counters.",
                 },
                 {
                     "id": "ev-init-wal-saturation",
                     "sourceL1Id": "ep-init-02",
                     "sourceRef": "workspace/rust-wal-bench/src/wal.rs",
                     "surface": "benchmark",
-                    "claim": "fsync sequencial por transação satura o drive a ~850 ops/s; Group Commit em lotes de 64 eleva para 42.000 ops/s mantendo durabilidade ACID.",
-                    "metric": "42.000 ops/s com p99 < 1.4ms (Group Commit 64)",
+                    "claim": "Sequential fsync per transaction saturates the drive at ~850 ops/s; Group Commit in batches of 64 raises it to 42,000 ops/s while keeping ACID durability.",
+                    "metric": "42,000 ops/s with p99 < 1.4ms (Group Commit 64)",
                     "reproductionCommand": "cargo run --release -- --bench-wal",
                     "arcId": "arc1_behavior",
                     "capabilityId": "cap-wal-io-saturation",
                     "verifiedBy": "reviewer",
                     "confidence": 1.0,
                     "verifiedAt": now,
-                    "notes": "Comprovado via amortização física do tempo de flush em disco NVMe.",
+                    "notes": "Proven via physical amortization of NVMe disk flush time.",
                 },
             ]
             write_evidences(default_evidences)
@@ -107,7 +107,7 @@ def get_full_memory_graph() -> dict:
             "timestamp": ep["date"],
             "projectSlug": ep.get("projectSlug"),
             "topic": ep.get("topic"),
-            "summary": f"{ep.get('projectSlug', 'OS')}: {ep.get('topic', 'Sessão')} (Fase {ep.get('phaseReached', 1)}, {ep.get('status', 'em-andamento')}) — {ep.get('extracted', '')}",
+            "summary": f"{ep.get('projectSlug', 'OS')}: {ep.get('topic', 'Session')} (Phase {ep.get('phaseReached', 1)}, {ep.get('status', 'em-andamento')}) — {ep.get('extracted', '')}",
             "source": "workspace/_meta/EPISODES.jsonl",
             "rawRef": ep.get("extracted"),
         })
@@ -151,7 +151,7 @@ def get_full_memory_graph() -> dict:
 
     return {
         "l3": {
-            "profileSummary": "Perfil do Usuário — Perfil Auditável de Julgamento Técnico",
+            "profileSummary": "User Profile — Auditable Technical Judgment Profile",
             "arcs": l3_arcs,
         },
         "l2": evidences,
@@ -177,21 +177,21 @@ def evidence_record(
     confidence: float = 1.0,
     notes: str | None = None,
 ) -> dict:
-    """[REVIEWER / HARVESTER] Registra um fato auditável L2 com ponteiro explícito para o trace L1 e o Arco L3.
+    """[REVIEWER / HARVESTER] Records an auditable L2 fact with an explicit pointer to the L1 trace and the L3 Arc.
 
-    Use sempre que um benchmark, teste ou desafio for comprovado.
+    Use whenever a benchmark, test, or challenge has been proven.
 
     Args:
-        claim: Afirmação técnica concreta ou conclusão empírica comprovada.
-        metric: Métrica mensurável (ex: 'p99 < 1.2ms @ 45k ops/s').
-        source_l1_id: ID do trace L1 ou episódio de origem.
-        source_ref: Caminho do arquivo de código/benchmark ou log.
+        claim: Concrete technical statement or proven empirical conclusion.
+        metric: Measurable metric (e.g. 'p99 < 1.2ms @ 45k ops/s').
+        source_l1_id: ID of the source L1 trace or episode.
+        source_ref: Path to the code/benchmark file or log.
         surface: benchmark | code_review | architecture_note | challenge | rescue | chat.
-        reproduction_command: Comando exato para reproduzir.
-        arc_id: ID do Arco de Capacidade vinculado.
-        capability_id: ID da Capacidade específica comprovada.
-        confidence: Confiança (0-1).
-        notes: Notas adicionais.
+        reproduction_command: Exact command to reproduce it.
+        arc_id: ID of the linked Capability Arc.
+        capability_id: ID of the specific capability proven.
+        confidence: Confidence (0-1).
+        notes: Additional notes.
     """
     evidences = read_evidences()
     ev_id = f"ev-{date.today().isoformat().replace('-', '')}-{_short_id()}"
@@ -242,7 +242,7 @@ def evidence_record(
 def evidence_list(
     arc_id: str | None = None, surface: str | None = None, search: str | None = None
 ) -> dict:
-    """Lista e pesquisa o acervo de fatos e evidências auditáveis L2 que sustentam as capacidades do perfil."""
+    """Lists and searches the collection of auditable L2 facts and evidence backing the profile's capabilities."""
     evidences = read_evidences()
     if arc_id:
         evidences = [e for e in evidences if e.get("arcId") == arc_id]

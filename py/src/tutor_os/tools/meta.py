@@ -16,23 +16,23 @@ EXP_PATH = META_DIR / "EXPERIMENTS.json"
 
 
 def _empty_now_content() -> str:
-    return f"""# NOW — Foco Ativo
+    return f"""# NOW — Active Focus
 
-**Projeto:** vazio
-**Missão:** (sem missão ativa)
-**Fase:** 1/4
-**Data:** {date.today().isoformat()}
+**Project:** none
+**Mission:** (no active mission)
+**Phase:** 1/4
+**Date:** {date.today().isoformat()}
 
-## Objetivo Observável
-Sem projeto ativo no momento
+## Observable Objective
+No active project right now
 
-## Próxima Ação (< 2min)
-Definir nova missão quando houver demanda
+## Next Action (< 2min)
+Define a new mission when there's demand for one
 """
 
 
 def _extract_now_project_slug(now_content: str) -> str | None:
-    m = re.search(r"\*\*Projeto:\*\*\s*(\S+)", now_content)
+    m = re.search(r"\*\*Project:\*\*\s*(\S+)", now_content)
     return m.group(1) if m else None
 
 
@@ -50,7 +50,7 @@ def clear_now_if_active_project(slug: str) -> None:
 
 
 def meta_overview() -> dict:
-    """Retorna o panorama completo de Meta-Learning: NOW.md, Arcos, Projetos e Tiny Experiments/observações."""
+    """Returns the full Meta-Learning overview: NOW.md, Arcs, Projects, and Tiny Experiments/observations."""
     now_content = NOW_PATH.read_text(encoding="utf-8") if NOW_PATH.exists() else ""
 
     arcs = read_arcs_data()
@@ -63,18 +63,16 @@ def meta_overview() -> dict:
             if c.get("verified"):
                 verified_capabilities += 1
             else:
-                pending_capabilities.append(
-                    {"arcId": a["id"], "capId": c["id"], "title": c["title"]}
-                )
+                pending_capabilities.append({
+                    "arcId": a["id"],
+                    "capId": c["id"],
+                    "title": c["title"],
+                })
 
     projects: list[dict] = []
     if WORKSPACE_ROOT.exists():
         for entry in sorted(WORKSPACE_ROOT.iterdir()):
-            if (
-                not entry.is_dir()
-                or entry.name.startswith(".")
-                or entry.name.startswith("_")
-            ):
+            if not entry.is_dir() or entry.name.startswith(".") or entry.name.startswith("_"):
                 continue
             title = entry.name
             phase = 1
@@ -102,26 +100,22 @@ def meta_overview() -> dict:
                     status = stm.group(1).strip()
 
             has_assignment = (entry / "ASSIGNMENT.md").exists()
-            projects.append(
-                {
-                    "slug": entry.name,
-                    "title": title,
-                    "phase": phase,
-                    "status": status,
-                    "hasAssignment": has_assignment,
-                }
-            )
+            projects.append({
+                "slug": entry.name,
+                "title": title,
+                "phase": phase,
+                "status": status,
+                "hasAssignment": has_assignment,
+            })
 
     experiments_count = 0
     if EXP_PATH.exists():
         try:
             exps = json.loads(EXP_PATH.read_text(encoding="utf-8"))
             experiments_count = (
-                len(exps)
-                if isinstance(exps, list)
-                else len(exps.get("experiments", []))
+                len(exps) if isinstance(exps, list) else len(exps.get("experiments", []))
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
     observations_count = 0
@@ -131,14 +125,12 @@ def meta_overview() -> dict:
             observations_count = (
                 len(obs) if isinstance(obs, list) else len(obs.get("observations", []))
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
     now_slug = _extract_now_project_slug(now_content)
     now_stale = bool(
-        now_slug
-        and now_slug != "vazio"
-        and not any(p["slug"] == now_slug for p in projects)
+        now_slug and now_slug != "none" and not any(p["slug"] == now_slug for p in projects)
     )
 
     return {
@@ -159,26 +151,26 @@ def meta_overview() -> dict:
 def meta_set_now(
     project_slug: str, mission: str, objective: str, next_action: str, phase: int = 1
 ) -> dict:
-    """Atualiza o arquivo NOW.md (foco ativo) com projeto ativo, missão, objetivo e próxima ação <2min.
+    """Updates the NOW.md file (active focus) with active project, mission, objective, and next action <2min.
 
     Args:
-        project_slug: Slug do projeto ativo no workspace.
-        mission: Título da missão ativa.
-        objective: Objetivo observável / critério de sucesso.
-        next_action: Próxima micro-ação física <2min.
-        phase: Fase atual (1 a 4).
+        project_slug: Slug of the active project in the workspace.
+        mission: Title of the active mission.
+        objective: Observable objective / success criterion.
+        next_action: Next physical micro-action <2min.
+        phase: Current phase (1 to 4).
     """
-    content = f"""# NOW — Foco Ativo
+    content = f"""# NOW — Active Focus
 
-**Projeto:** {project_slug}
-**Missão:** {mission}
-**Fase:** {phase}/4
-**Data:** {date.today().isoformat()}
+**Project:** {project_slug}
+**Mission:** {mission}
+**Phase:** {phase}/4
+**Date:** {date.today().isoformat()}
 
-## Objetivo Observável
+## Observable Objective
 {objective}
 
-## Próxima Ação (< 2min)
+## Next Action (< 2min)
 {next_action}
 """
     NOW_PATH.parent.mkdir(parents=True, exist_ok=True)

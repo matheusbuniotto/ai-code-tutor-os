@@ -20,19 +20,15 @@ def get_default_observations() -> list[Observation]:
     base: list[Observation] = [
         {
             "tag": "Architecture Method",
-            "text": "Pirâmide Invertida: 1. Topologia Macro → 2. Tracer Bullet → 3. Break Edges → 4. Nota 1-Página.",
+            "text": "Inverted Pyramid: 1. Macro Topology → 2. Tracer Bullet → 3. Break Edges → 4. 1-Page Note.",
         },
         {
             "tag": "Cognitive Invariant",
-            "text": "Paper-First: Desenho topológico e análise de trade-offs antes de codar.",
+            "text": "Paper-First: topological design and trade-off analysis before coding.",
         },
     ]
     if learner_profile.has_neuropsych_rescue_profile:
-        tag_suffix = (
-            f" • {learner_profile.cognitive_tag}"
-            if learner_profile.cognitive_tag
-            else ""
-        )
+        tag_suffix = f" • {learner_profile.cognitive_tag}" if learner_profile.cognitive_tag else ""
         base.insert(
             0,
             {
@@ -47,8 +43,8 @@ def read_observations() -> list[Observation]:
     try:
         if OBSERVATIONS_PATH.exists():
             return json.loads(OBSERVATIONS_PATH.read_text(encoding="utf-8"))
-    except Exception as err:  # noqa: BLE001
-        print(f"Erro ao ler OBSERVATIONS.json: {err}")
+    except Exception as err:
+        print(f"Error reading OBSERVATIONS.json: {err}")
     return get_default_observations()
 
 
@@ -60,17 +56,17 @@ def write_observations(observations: list[Observation]) -> None:
 
 
 def observation_capture(tag: str, text: str) -> dict:
-    """Registra uma observação curta e duradoura sobre o aprendiz ou o projeto assim que ela for percebida.
+    """Records a short, durable observation about the learner or the project as soon as it's noticed.
 
-    Não espere o fechamento de sessão nem peça permissão. Use para fatos concretos
-    (decisão tomada, preferência expressa, mudança de direção de projeto, padrão de
-    bloqueio observado, capacidade demonstrada). NÃO use para opiniões, hipóteses não
-    confirmadas, ou repetições do que já foi registrado — prefira poucas observações
-    de alta qualidade a muitas triviais.
+    Don't wait for session close or ask permission. Use for concrete facts
+    (a decision made, an expressed preference, a project direction change, an
+    observed blockage pattern, a demonstrated capability). Do NOT use for
+    opinions, unconfirmed hypotheses, or repeats of what's already recorded —
+    prefer a few high-quality observations over many trivial ones.
 
     Args:
-        tag: categoria curta, ex: 'Decisão de Arquitetura', 'Preferência', 'Padrão de Bloqueio'.
-        text: a observação em 1-2 frases, factual e específica.
+        tag: short category, e.g. 'Architecture Decision', 'Preference', 'Blockage Pattern'.
+        text: the observation in 1-2 sentences, factual and specific.
     """
     observations = read_observations()
     observations.append({"tag": tag, "text": text})
