@@ -20,6 +20,9 @@ Repository = "https://github.com/matheusbuniotto/aio-learn"
 [project.scripts]
 tutor-os-py = "tutor_os:main"
 
+[dependency-groups]
+dev = ["ruff>=0.16.6"]
+
 [tool.uv.build-backend]
 module-name = "tutor_os"
 
