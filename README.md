@@ -16,70 +16,82 @@ Tutor OS is designed around **cognitive scaffolding**:
 
 ---
 
-## 🧠 Core Architecture & Industry Patterns
+## 🧠 Architecture Overview
 
 ```text
 ┌───────────────────────────────────────────────────────────────┐
 │                   DESKTOP & WEB INTERFACE                     │
-│   • Tauri (Rust Shell) / Responsive SPA                       │
-│   • Theme Customization • Streaming SSE • Workspace Panels    │
+│   • Tauri (Rust Shell) • Web SPA • Customizable Themes        │
+│   • Streaming SSE • Dynamic Cards • Workspace Selector        │
 └───────────────────────────────┬───────────────────────────────┘
                                 │ HTTP / SSE
                                 ▼
 ┌───────────────────────────────────────────────────────────────┐
 │               TUTOR OS BACKEND (Pydantic-AI 2.0)              │
 │                                                               │
-│   ┌────────────────────────────────────────────────────────┐  │
-│   │                      TUTOR HUB                         │  │
-│   │   Orchestrates turn, prompt personalization, compact   │  │
-│   └───────────┬────────────────────────────────┬───────────┘  │
-│               │                                │              │
-│       A2A Delegation                   Dynamic JIT Skills     │
-│   (Isolated Context Loop)           (In-turn Personality/Role)│
-│               │                                │              │
-│       ┌───────┴──────────────┐        ┌────────┴────────┐     │
-│       │ • Researcher (Web /  │        │ • Challenger    │     │
-│       │   ArXiv Integration) │        │ • Breaker       │     │
-│       │ • Assigner (Arcs)    │        │ • Scaffolder    │     │
-│       │ • Pair Partner       │        │ • Teacher       │     │
-│       │ • Rescue Handler     │        │ • Reviewer      │     │
-│       └──────────────────────┘        └─────────────────┘     │
-│                                                               │
-│   ┌────────────────────────────────────────────────────────┐  │
-│   │             HIERARCHICAL MEMORY & INBOX                │  │
-│   │   Working Memory • Living Library • Episodes • SQLite  │  │
-│   │   Triage Inbox • Memory Audits • Learner Profile       │  │
-│   └────────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │                     SESSION ENGINE                      │  │
+│  │   Prompt Personalization • Auto-Compact • Rescue Loop   │  │
+│  └──────────────┬───────────────────────────┬──────────────┘  │
+│                 │                           │                 │
+│         A2A Orchestration           Dynamic JIT Skills        │
+│                 ▼                           ▼                 │
+│        ┌─────────────────┐         ┌─────────────────┐        │
+│        │ • Tutor (Hub)   │         │ • Challenger    │        │
+│        │ • Researcher    │         │ • Breaker       │        │
+│        │ • Assigner      │         │ • Scaffolder    │        │
+│        │ • Pair Partner  │         │ • Teacher       │        │
+│        └────────┬────────┘         └─────────────────┘        │
+│                 │                                             │
+│                 ▼                                             │
+│  ┌──────────────────────────────┐  ┌───────────────────────┐  │
+│  │       EXTERNAL SENSORS       │  │   PERSISTENCE LAYER   │  │
+│  │ • Web Search & Docs Scraper  │  │ • SQLite Thread DB    │  │
+│  │ • ArXiv Papers API           │  │ • Working Memory      │  │
+│  │ • Local Workspace FS         │  │ • Triage Inbox & Arcs │  │
+│  │ • Model Gateway (OpenAI/Zen) │  │ • Learner Profile     │  │
+│  └──────────────────────────────┘  └───────────────────────┘  │
 └───────────────────────────────────────────────────────────────┘
 ```
 
-### 1. Agent-to-Agent (A2A) Protocol vs. Dynamic JIT Skills
-Monolithic prompts degrade quickly when tasks grow complex. Tutor OS splits cognition into two distinct patterns:
-- **A2A Protocol (Isolated Sub-Agents)**: Heavy, noisy subtasks run in isolated agent contexts via typed delegation tools. The primary Tutor thread stays clean and focused on your learning dialogue.
-- **Dynamic JIT Skills**: Fast behavioral injections (`challenger` to poke holes in assumptions, `breaker` to invent adversarial edge cases, `scaffolder` to provide minimal interfaces). These are loaded directly into the active turn so conversation history remains intact without expensive round-trips.
+---
 
-### 2. Deep Research: Live Web & ArXiv Integration
-When exploring new domains or unfamiliar primitives (e.g. distributed systems, lower-level Go/Rust concurrency), the `researcher` sub-agent independently queries both:
-- **Technical Web Documentation**: Pulls official release notes, APIs, and modern code conventions.
-- **ArXiv Papers**: Extracts primary research insights and algorithmic foundations, digesting them into concise mental models before returning to your main thread.
+## ✨ Key Features
 
-### 3. Personalization, Auto-Compact & Recovery
-- **Prompt Personalization**: Bridges new concepts to your known strengths by anchoring to your `learner_profile` (e.g., explaining memory safety through familiar systems or data analogies).
-- **Auto-Compact**: Intelligent context compression for long-running threads—periodically distilling message histories so key decisions and mental models survive without blowing token limits.
-- **Triage Inbox & Rescue Loop (`/api/rescue`)**:
-  - **Inbox**: Dump raw thoughts, unvetted links, and scratchpad notes into an asynchronous triage inbox that gets scheduled into future arcs.
-  - **Rescue Mode**: Triggers when you get stuck in a frustrating bug loop or cognitive fatigue—intervening to reset confusion, isolate root causes, and walk you back to first principles.
+### 1. Agent-to-Agent (A2A) Protocol & Context Isolation
+Monolithic agent prompts degrade quickly as tasks grow complex. Tutor OS decouples coordination:
+- **Tutor Hub**: Owns the learner conversation and instructional strategy.
+- **Isolated Sub-Agents**: Heavy tasks (iterative documentation searches, workspace parsing, project arc assignments) execute inside independent agent contexts (`agent.run()` A2A). This keeps the main Tutor conversation context razor-sharp and free from token-heavy tool output.
 
-### 4. Multi-Layer Memory Management
+### 2. Dynamic JIT Skills (In-Turn Intervention)
+Rather than spawning an out-of-process agent for every pedagogical action, Tutor OS uses JIT in-turn skills:
+- **`challenger`**: Pokes holes in naive assumptions before you write code.
+- **`breaker`**: Generates adversarial edge cases to test your implementation.
+- **`scaffolder`**: Offers minimal interfaces and structural type skeletons.
+- **`teacher`**: Steps in with targeted mental models when you ask for conceptual clarity.
+*Skills inject directly into the Tutor's active turn, retaining full thread history without stateless round-trip penalties.*
+
+### 3. Deep Research: Live Web & ArXiv Papers
+When navigating unfamiliar technologies or theoretical domains (e.g., distributed consensus, memory safety in Rust, concurrency in Go), the `researcher` sub-agent autonomously queries:
+- **Technical Web Documentation**: Gathers API references, migration guides, and modern idioms.
+- **ArXiv Research Papers**: Pulls primary source academic papers, extracting core algorithmic formulas and design trade-offs before reporting a concise synthesis back to your session.
+
+### 4. Hierarchical Memory Management
 - **Working Memory**: In-flight goals, active hypotheses, and immediate roadblocks.
-- **Episodes & Observations**: Captures where you experienced cognitive friction, what concepts finally clicked, and recurring patterns.
-- **Living Library & Audits**: Long-term storage backed by SQLite and meta-indexes, preventing contradictory advice and tracking skill acquisition over time.
-- **Workspaces**: Scopes context to specific repositories and independent projects.
+- **Episodes & Observations**: Captures recurring misunderstandings, breakthroughs, and cognitive friction patterns.
+- **Living Library & Audits**: Persistent SQLite knowledge base with self-auditing routines to resolve contradictions and track skill retention over time.
+- **Workspaces**: Scopes context to specific repositories, preserving unique project notes and code context across independent codebases.
 
-### 5. Native Desktop (Tauri + Rust) & Customizable UI
-- **Tauri Shell**: Native desktop experience with near-instant boot and minimal RAM footprint.
-- **Theme Customization**: Tailor the visual interface for high-focus terminal sessions or late-night deep work.
-- **Real-Time Streaming**: Low-latency SSE chat streaming with structured UI event cards for tool executions and skill activations.
+### 5. Personalization, Rescue Loop & Auto-Compact
+- **Prompt Personalization**: Calibrates explanation depth and tone against your `learner_profile`—anchoring new concepts to your existing background.
+- **Rescue Mode (`/api/rescue`)**: Intervenes when you are stuck in a frustrating bug loop, resetting confusion, isolating root causes, and guiding you back to first principles.
+- **Thread Auto-Compact**: Automatically compresses long-running threads, preserving key architectural decisions and unresolved questions without hitting context ceilings.
+- **Triage Inbox**: Dump raw thoughts, unvetted links, and scratchpad notes into an asynchronous triage inbox that gets organized into future milestones.
+
+### 6. Native Desktop Shell (Tauri + Rust) & Theme Customization
+- **Tauri Desktop Shell**: A lightweight native desktop client with instant startup and minimal RAM footprint.
+- **Customizable Themes**: Switch between high-contrast terminal themes and calm dark palettes for late-night deep work sessions.
+- **Streaming SSE**: Low-latency token streaming with dedicated UI event cards for tool calls and skill interventions.
 
 ---
 
