@@ -1,13 +1,13 @@
 # AI Code Tutor OS
 
 > **A personal AI coding tutor and cognitive harness built for progressive overload.**  
-> Most AI coding assistants act like autocompletes that rob you of the learning loop. Tutor OS does the opposite: it helps you build the learning road, keeps you on track, stress-tests your mental models, and grows with you as you tackle harder engineering challenges.
+> Most AI coding assistants rob you of the learning loop. Tutor OS does the opposite: it helps you build the learning road, keeps you on track, stress-tests your mental models, and grows with you as you tackle harder engineering challenges.
 
 ---
 
 ## 🧭 Why Tutor OS?
 
-Autocomplete and chat agents optimize for finishing the task today, often leaving you with code you don't fully understand and won't remember next week.
+Chat/AI agents optimize for finishing the task today, often leaving you with code you don't fully understand and won't remember next week.
 
 Tutor OS is designed around **cognitive scaffolding**:
 - **Builds the road**: Organizes your learning into structured milestones and project arcs.
