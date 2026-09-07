@@ -4,9 +4,9 @@ I learn by building. Reading documentation, watching conference talks, or asking
 
 The only way technical judgment actually develops is through direct contact with the problem: mapping invariants on paper, writing the minimal code that runs, breaking it at the edges on purpose, and observing how it fails.
 
-Most AI coding assistants do the opposite. They act as autocompletes that jump straight to a full solution, turning the user into a paste buffer. You get working code in your repository, but you skip the entire friction loop that builds judgment.
+Most AI coding assistants do the opposite. They jump straight to a full solution, turning the user into a enter-accept machine. You get working code in your repository, but you skip the entire friction loop that builds judgment.
 
-Tutor OS is a local learning system built around a stubborn rule: **a capability only counts as learned when it traces back to reproducible evidence on disk.** Not "I read about LSM compaction", but a benchmark, a test, a reproduction command, and the failure modes you personally verified.
+Tutor OS is HIGHLY opinionated local learning system built around a stubborn rule: **a capability only counts as learned when it traces back to reproducible evidence.** Not "I read about LSM compaction", but a benchmark, a test, a reproduction command, and the failure modes you personally verified.
 
 ---
 
@@ -15,11 +15,11 @@ Tutor OS is a local learning system built around a stubborn rule: **a capability
 Projects move through four phases (the Inverted Pyramid) before any capability gets checked off:
 
 1. **Macro topology on paper.** Sketch the invariants and data flow before opening an editor. If you cannot explain the failure modes on an index card, writing code only hides the confusion.
-2. **Tracer bullet.** The smallest possible end-to-end slice that compiles and runs. The tutor provides the boundary skeleton with named gaps; you write the actual logic.
+2. **Tracer bullet.** The smallest possible end-to-end slice that compiles and runs (Pragmatic Programming inspired). The tutor provides the boundary skeleton with named gaps; you write the actual logic.
 3. **Break edges.** Intentionally break it. Fuzz boundary conditions, trigger race conditions, cut network connections.
 4. **Architecture note.** One page: invariants, trade-offs, when not to use this design, and what broke along the way.
 
-What comes out of this lands in a four-layer memory on disk:
+What comes out of this lands in a four-layer memory that can be seen and managed at UI/local:
 - `WORKING_MEMORY.md` — a Markdown profile injected fresh into every model call.
 - `EPISODES.jsonl` — append-only session records (what broke, what was extracted).
 - `ARCS.json` & `EVIDENCES.json` — the skill map and the verified reproduction commands backing it.
@@ -82,7 +82,7 @@ When exploring unfamiliar systems (distributed consensus, memory models in Rust,
 - **Technical Documentation**: Web search and doc scraping for API contracts, edge-case bug trackers, and modern patterns.
 - **ArXiv Papers**: Primary source academic papers, extracting core algorithmic bounds and design trade-offs before reporting a synthesis back to your session.
 
-### 3. Multi-Layer Memory on Disk (No Vector Database)
+### 3. Multi-Layer Memory on Disk (No Vector Database) - Inspired by HKUDS university work
 Vector databases are the wrong abstraction for a single engineer's learning memory. When an LLM summarizes a concept inaccurately, you want to open a file in your editor, fix the line, and save.
 - **Working Memory (`WORKING_MEMORY.md`)**: Injected into every agent call via instructions hooks. Updated one section at a time to prevent the model from dropping context.
 - **Episodes (`EPISODES.jsonl`)**: Append-only session records capturing what broke and what was extracted.
