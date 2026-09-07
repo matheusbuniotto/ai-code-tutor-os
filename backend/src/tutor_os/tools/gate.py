@@ -1,18 +1,18 @@
-"""Port of src/mastra/tools/gate.ts.
+"""3-Gate Leverage Filter: evaluates ideas before they earn execution time.
 
-3-Gate Leverage Filter: evaluates ideas/demands before starting execution.
-Protects focus and avoids dopaminergic collapse / dispersion.
+Protects focus against dispersion into low-leverage work.
 """
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from typing import Literal
 
-from tutor_os.storage import WORKSPACE_ROOT
+from tutor_os.storage import META_DIR, append_jsonl
 
-GATE_HISTORY_PATH = WORKSPACE_ROOT / "_meta" / "GATE_HISTORY.jsonl"
+GATE_HISTORY_PATH = META_DIR / "GATE_HISTORY.jsonl"
+
+_PERSONAL_GATES_TO_PASS = 3
 
 Context = Literal["work", "personal_study"]
 Verdict = Literal["GO", "DELEGATE_AUTOMATE_ASYNC", "POSTPONE_RECORD"]
@@ -66,47 +66,28 @@ def gate_check(
         gates_summary["3_topology_before_syntax"] = personal_topology_before_syntax
         gates_summary["4_future_demand_no_abandonment"] = personal_demand_and_no_abandon_trap
 
-        passed_count = sum([
-            personal_cluster_deepening,
-            personal_tracer_bullet_fit,
-            personal_topology_before_syntax,
-            personal_demand_and_no_abandon_trap,
-        ])
-        if passed_count >= 3:
+        passed = sum(gates_summary.values())
+        if passed >= _PERSONAL_GATES_TO_PASS:
             verdict = "GO"
-            rationale = f"Passed {passed_count}/4 personal-lab gates. Approved for execution in the Inverted Pyramid."
+            rationale = f"Passed {passed}/4 personal-lab gates. Approved for execution in the Inverted Pyramid."
         else:
             verdict = "POSTPONE_RECORD"
-            rationale = f"Only passed {passed_count}/4 gates. Note it in INBOX/ideas and postpone to protect focus."
+            rationale = f"Only passed {passed}/4 gates. Note it in INBOX/ideas and postpone to protect focus."
 
-    anti_impostor_anchor = None
-    if impostor_doubt_expressed:
-        anti_impostor_anchor = (
-            "Reality anchor: your cognitive profile learns invariants faster than average. "
-            "Your asymmetric advantage is synthesizing AI architecture, data, and business ROI — not accumulating isolated syntax."
-        )
+    anti_impostor_anchor = (
+        "Reality anchor: your cognitive profile learns invariants faster than average. "
+        "Your asymmetric advantage is synthesizing AI architecture, data, and business ROI — not accumulating isolated syntax."
+        if impostor_doubt_expressed
+        else None
+    )
 
-    try:
-        GATE_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-        entry = {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "topic": topic,
-            "context": context,
-            "verdict": verdict,
-            "gatesSummary": gates_summary,
-            "rationale": rationale,
-        }
-        with GATE_HISTORY_PATH.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
-
-    return {
+    verdict_record = {
         "topic": topic,
         "context": context,
         "verdict": verdict,
         "gatesSummary": gates_summary,
         "rationale": rationale,
-        "antiImpostorAnchor": anti_impostor_anchor,
-        "recorded": True,
     }
+    append_jsonl(GATE_HISTORY_PATH, {"timestamp": datetime.now(UTC).isoformat(), **verdict_record})
+
+    return {**verdict_record, "antiImpostorAnchor": anti_impostor_anchor, "recorded": True}

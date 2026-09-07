@@ -1,11 +1,8 @@
-"""Port of src/mastra/prompts/icm.ts.
+"""Learning Harness instruction fragments shared by every agent.
 
-Learning Harness v3.0 instruction fragments: invariants, Inverted Pyramid,
-3-Gate Filter, metacognition (CAS) and the Cognitive Rescue Matrix.
-
-Fragments that vary per learner use {{...}} tokens resolved by
-`personalize()` (tutor_os.config.learner_profile) in each agent's final
-instructions — do not hardcode name/report/career here.
+Invariants, the Inverted Pyramid, the 3-Gate Filter, metacognition and the
+Cognitive Rescue Matrix. Fragments that vary per learner use {{...}} tokens
+resolved by `personalize()` — never hardcode name/report/career here.
 """
 
 from __future__ import annotations

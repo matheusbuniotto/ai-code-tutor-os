@@ -1,39 +1,21 @@
-"""Port of the `workingMemory` feature of `src/mastra/memory.ts`.
+"""Working memory: a Markdown learner profile injected into every agent call.
 
-Mastra's `Memory` object auto-injects a resource-scoped Markdown "Learner
-Profile" document into every agent call and exposes a native
-`updateWorkingMemory` tool the LLM can call to edit it turn-by-turn.
-pydantic-ai has no built-in equivalent, so this reimplements the same
-observable behavior: a persisted Markdown doc, injected via
-`@agent.instructions` on every call (`inject_working_memory`), and an
-update tool (`update_working_memory`) registered on every agent's
-TOOL_FUNCTIONS.
-
-Deviates from Mastra in one way: Mastra's native tool replaces the WHOLE
-document in one shot (`{memory: string}` schema). This instead ports the
-section-scoped regex-replace convention `tools/state.py` already
-established for PROFILE.md, since letting the LLM resend the entire
-document every turn risks silent truncation of sections it doesn't feel
-like repeating.
-
-This file's document (`WORKING_MEMORY.md`) is deliberately separate from
-`tools/state.py`'s `PROFILE.md` — same as in TS, where `memory.ts`'s
-workingMemory template and `state.ts`'s PROFILE.md are two independent
-systems: PROFILE.md is read once at session start via an explicit
-`state_read` tool call and written only by the Harvester, while
-WORKING_MEMORY.md is auto-injected into every single call and editable by
-any agent.
+Distinct from `tools/state.py`'s PROFILE.md, which is read once at session
+start and written only by the Harvester. This doc is auto-injected on every
+call and any agent may edit it, one section at a time — a whole-document
+rewrite would let the model silently drop sections it didn't feel like
+repeating.
 """
 
 from __future__ import annotations
 
-import re
 from typing import Literal
 
 from tutor_os.config.learner_profile import LearnerProfile, learner_profile, personalize
-from tutor_os.storage import WORKSPACE_ROOT
+from tutor_os.markdown import replace_section
+from tutor_os.storage import META_DIR, write_text
 
-WORKING_MEMORY_PATH = WORKSPACE_ROOT / "_meta" / "WORKING_MEMORY.md"
+WORKING_MEMORY_PATH = META_DIR / "WORKING_MEMORY.md"
 
 Section = Literal[
     "cognitive-affective-profile",
@@ -55,7 +37,7 @@ _SECTION_HEADERS: dict[Section, str] = {
 
 
 def build_learner_profile_template(profile: LearnerProfile) -> str:
-    """Port of `buildLearnerProfileTemplate()` in `src/mastra/memory.ts`."""
+    """Renders the starting document for a learner who has none yet."""
     if profile.has_neuropsych_rescue_profile:
         tag = f" ({profile.cognitive_tag})" if profile.cognitive_tag else ""
         detail = (
@@ -104,12 +86,11 @@ def build_learner_profile_template(profile: LearnerProfile) -> str:
 
 
 def get_working_memory() -> str:
-    """Reads the persisted working memory doc, initializing it from the template on first use."""
+    """Reads the persisted doc, initializing it from the template on first use."""
     if WORKING_MEMORY_PATH.exists():
         return WORKING_MEMORY_PATH.read_text(encoding="utf-8")
     doc = build_learner_profile_template(learner_profile)
-    WORKING_MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    WORKING_MEMORY_PATH.write_text(doc, encoding="utf-8")
+    write_text(WORKING_MEMORY_PATH, doc)
     return doc
 
 
@@ -122,25 +103,11 @@ def update_working_memory(section: Section, content: str) -> dict:
         section: Section of the Learner Profile to update.
         content: New full content of the section (replaces the previous one).
     """
-    body = get_working_memory()
     header = f"## {_SECTION_HEADERS[section]}"
-    # `[^\n]*` tolerates a header line with a trailing suffix (e.g. "Cognitive
-    # & Affective Profile (elevated GAI, ...)" when a cognitive_tag is set) —
-    # match on the header prefix, not the exact full line.
-    pattern = re.compile(rf"{re.escape(header)}[^\n]*\n[\s\S]*?(?=\n## |$)")
-    replacement = f"{header}\n{content}\n"
-    body = (
-        pattern.sub(replacement, body, count=1)
-        if pattern.search(body)
-        else f"{body}\n{replacement}"
-    )
-    WORKING_MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    WORKING_MEMORY_PATH.write_text(body, encoding="utf-8")
+    write_text(WORKING_MEMORY_PATH, replace_section(get_working_memory(), header, content))
     return {"ok": True}
 
 
 def inject_working_memory() -> str:
-    """Registered as a dynamic `@agent.instructions` hook on every agent — returns the
-    current working memory doc fresh on every call (unlike `personalize()`'d static
-    instructions, which freeze at agent-construction/server-boot time)."""
+    """Agent instructions hook: re-reads the doc every call, so edits land mid-session."""
     return get_working_memory()

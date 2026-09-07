@@ -1,10 +1,8 @@
-"""Port of src/server.ts — tracer-bullet pass.
+"""HTTP API and SSE chat loop.
 
-Ships the core chat loop end-to-end (status, config, threads, chat SSE,
-workspace, memory overview) against the existing frontend/ unmodified.
-Endpoints backed by the not-yet-ported specialist agents (research panel,
-rescue, arcs/assignment mutation panels, inbox, experiments) are left for the
-next incremental pass — see tutor_os.tools.delegation for the flagged gap.
+Endpoints are grouped by panel (status, config, chat, research, threads,
+workspace, memory, arcs). Handlers raise; the two exception handlers below
+turn anything that escapes into the `{"error": ...}` shape the frontend reads.
 """
 
 from __future__ import annotations
@@ -16,9 +14,9 @@ import logging
 import mimetypes
 import os
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, NamedTuple
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic_ai import (
@@ -38,28 +36,19 @@ from pydantic_ai.messages import (
 )
 
 from tutor_os import db
-from tutor_os.agents.architect import TOOL_FUNCTIONS as ARCHITECT_TOOL_FUNCTIONS
-from tutor_os.agents.architect import architect_agent
-from tutor_os.agents.assigner import TOOL_FUNCTIONS as ASSIGNER_TOOL_FUNCTIONS
-from tutor_os.agents.assigner import assigner_agent
-from tutor_os.agents.breaker import TOOL_FUNCTIONS as BREAKER_TOOL_FUNCTIONS
-from tutor_os.agents.breaker import breaker_agent
-from tutor_os.agents.challenger import TOOL_FUNCTIONS as CHALLENGER_TOOL_FUNCTIONS
-from tutor_os.agents.challenger import challenger_agent
-from tutor_os.agents.pair import TOOL_FUNCTIONS as PAIR_TOOL_FUNCTIONS
-from tutor_os.agents.pair import pair_agent
-from tutor_os.agents.planner import TOOL_FUNCTIONS as PLANNER_TOOL_FUNCTIONS
-from tutor_os.agents.planner import planner_agent
-from tutor_os.agents.researcher import TOOL_FUNCTIONS as RESEARCHER_TOOL_FUNCTIONS
-from tutor_os.agents.researcher import researcher_agent
-from tutor_os.agents.reviewer import TOOL_FUNCTIONS as REVIEWER_TOOL_FUNCTIONS
-from tutor_os.agents.reviewer import reviewer_agent
-from tutor_os.agents.scaffolder import TOOL_FUNCTIONS as SCAFFOLDER_TOOL_FUNCTIONS
-from tutor_os.agents.scaffolder import scaffolder_agent
-from tutor_os.agents.teacher import TOOL_FUNCTIONS as TEACHER_TOOL_FUNCTIONS
-from tutor_os.agents.teacher import teacher_agent
-from tutor_os.agents.tutor import TOOL_FUNCTIONS as TUTOR_TOOL_FUNCTIONS
-from tutor_os.agents.tutor import tutor_agent
+from tutor_os.agents import (
+    architect,
+    assigner,
+    breaker,
+    challenger,
+    pair,
+    planner,
+    researcher,
+    reviewer,
+    scaffolder,
+    teacher,
+    tutor,
+)
 from tutor_os.config.learner_profile import read_learner_profile, write_learner_profile
 from tutor_os.model import (
     get_active_model_name,
@@ -69,18 +58,25 @@ from tutor_os.model import (
 )
 from tutor_os.storage import PROJECT_ROOT, WORKSPACE_ROOT, init_db
 from tutor_os.tools.arcs import read_arcs_data, save_arcs_data
-from tutor_os.tools.episodes import episodes_recent
+from tutor_os.tools.episodes import episodes_clear, episodes_delete, episodes_recent
 from tutor_os.tools.living_library import library_index
 from tutor_os.tools.memory_audit import (
     L2Evidence,
-    _short_id,
     evidence_list,
     get_full_memory_graph,
+    link_capability,
     read_evidences,
+    short_id,
     write_evidences,
 )
 from tutor_os.tools.meta import meta_overview, meta_set_now
-from tutor_os.tools.observations import read_observations
+from tutor_os.tools.observations import (
+    observation_capture,
+    observation_delete,
+    observation_update,
+    observations_reset,
+    read_observations,
+)
 from tutor_os.tools.os_files import os_read
 from tutor_os.tools.page_index import paper_dissect, read_dissected_papers
 from tutor_os.tools.rescue import rescue_diagnose
@@ -99,32 +95,25 @@ from tutor_os.tools.workspace import (
 logger = logging.getLogger("tutor_os")
 
 UI_DIR = PROJECT_ROOT / "frontend"
-AGENTS = {
-    "tutor": tutor_agent,
-    "assigner": assigner_agent,
-    "researcher": researcher_agent,
-    "pair": pair_agent,
-    "architect": architect_agent,
-    "challenger": challenger_agent,
-    "reviewer": reviewer_agent,
-    "teacher": teacher_agent,
-    "planner": planner_agent,
-    "scaffolder": scaffolder_agent,
-    "breaker": breaker_agent,
+
+_AGENT_MODULES = {
+    m.__name__.rsplit(".", 1)[-1]: m
+    for m in (
+        tutor,
+        assigner,
+        researcher,
+        pair,
+        architect,
+        challenger,
+        reviewer,
+        teacher,
+        planner,
+        scaffolder,
+        breaker,
+    )
 }
-_AGENT_TOOL_FUNCTIONS = {
-    "tutor": TUTOR_TOOL_FUNCTIONS,
-    "assigner": ASSIGNER_TOOL_FUNCTIONS,
-    "researcher": RESEARCHER_TOOL_FUNCTIONS,
-    "pair": PAIR_TOOL_FUNCTIONS,
-    "architect": ARCHITECT_TOOL_FUNCTIONS,
-    "challenger": CHALLENGER_TOOL_FUNCTIONS,
-    "reviewer": REVIEWER_TOOL_FUNCTIONS,
-    "teacher": TEACHER_TOOL_FUNCTIONS,
-    "planner": PLANNER_TOOL_FUNCTIONS,
-    "scaffolder": SCAFFOLDER_TOOL_FUNCTIONS,
-    "breaker": BREAKER_TOOL_FUNCTIONS,
-}
+AGENTS = {name: mod.agent for name, mod in _AGENT_MODULES.items()}
+_AGENT_TOOL_FUNCTIONS = {name: mod.TOOL_FUNCTIONS for name, mod in _AGENT_MODULES.items()}
 _AUTO_COMPACT_KEEP_LAST = 16
 
 init_db()
@@ -138,15 +127,59 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(Exception)
+def unhandled_error(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("%s %s failed", request.method, request.url.path)
+    return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.exception_handler(HTTPException)
+def http_error(request: Request, exc: HTTPException) -> JSONResponse:
+    """Keeps the `{"error": ...}` shape the frontend reads, instead of FastAPI's `detail`."""
+    return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
+
+
+def _required(payload: dict, *keys: str) -> list:
+    missing = [k for k in keys if not payload.get(k)]
+    if missing:
+        raise HTTPException(400, f"{' and '.join(missing)} required")
+    return [payload[k] for k in keys]
+
+
 def _sse(payload: dict) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
-def _stream_event_frames(event: Any, full_text_parts: list[str]):
+# pydantic-ai-harness always names a Skill invocation "load_capability" and
+# passes the actual skill id (e.g. "challenger") as an argument — without this,
+# every Skill call is indistinguishable from a generic tool call in the UI.
+_SKILL_LOADER_TOOL_NAME = "load_capability"
+
+
+def _skill_id_from_args(tool_name: str, args: dict) -> str | None:
+    if tool_name == _SKILL_LOADER_TOOL_NAME:
+        return args.get("id") or args.get("capability") or args.get("name")
+    return None
+
+
+class _ChatTurn(NamedTuple):
+    """Identifies the thread/agent/turn a live SSE stream belongs to, so it can
+    be threaded through as a single parameter instead of three positional
+    ones (keeps _consume_agent_stream under the project's max-args limit)."""
+
+    thread_id: str
+    agent_id: str
+    turn_id: str
+
+
+def _stream_event_frames(event: Any, full_text_parts: list[str], turn: _ChatTurn):
     """Translate one pydantic-ai stream event into zero or more SSE frames.
 
     Appends any streamed text to `full_text_parts` (used to persist the full
     assistant reply once the stream ends) and yields the matching SSE payload(s).
+    Also persists tool-call/tool-result/tool-error events to `db.tool_events`
+    as they happen, so A2A delegation and Skill invocations survive a page
+    reload instead of only existing in the live DOM for that one session.
     """
     if (
         isinstance(event, PartStartEvent)
@@ -163,24 +196,40 @@ def _stream_event_frames(event: Any, full_text_parts: list[str]):
         full_text_parts.append(event.delta.content_delta)
         yield _sse({"type": "text", "text": event.delta.content_delta})
     elif isinstance(event, FunctionToolCallEvent):
+        args = event.part.args_as_dict()
+        skill_id = _skill_id_from_args(event.part.tool_name, args)
+        db.save_tool_call(
+            turn.thread_id,
+            turn.turn_id,
+            event.part.tool_call_id,
+            event.part.tool_name,
+            skill_id,
+            json.dumps(args, default=str),
+        )
         yield _sse({
             "type": "tool-call",
             "toolCallId": event.part.tool_call_id,
             "toolName": event.part.tool_name,
-            "args": event.part.args_as_dict(),
+            "skillId": skill_id,
+            "args": args,
         })
     elif isinstance(event, FunctionToolResultEvent):
         part = event.part
         if isinstance(part, RetryPromptPart):
+            error_text = (
+                part.content
+                if isinstance(part.content, str)
+                else json.dumps(part.content, default=str)
+            )
+            db.save_tool_result(part.tool_call_id, json.dumps(error_text), True)
             yield _sse({
                 "type": "tool-error",
                 "toolCallId": part.tool_call_id,
                 "toolName": part.tool_name or "tool",
-                "error": part.content
-                if isinstance(part.content, str)
-                else json.dumps(part.content, default=str),
+                "error": error_text,
             })
         else:
+            db.save_tool_result(part.tool_call_id, json.dumps(part.content, default=str), False)
             yield _sse({
                 "type": "tool-result",
                 "toolCallId": part.tool_call_id,
@@ -231,8 +280,7 @@ async def _consume_agent_stream(
     done_marker: object,
     disconnected: asyncio.Event,
     full_text_parts: list[str],
-    thread_id: str,
-    agent_id: str,
+    turn: _ChatTurn,
 ):
     """Drain `queue`, yielding SSE frames, until the producer finishes or the
     client disconnects."""
@@ -248,12 +296,15 @@ async def _consume_agent_stream(
             return
         if isinstance(item, Exception):
             logger.exception(
-                "chat run failed (thread=%s agent=%s)", thread_id, agent_id, exc_info=item
+                "chat run failed (thread=%s agent=%s)",
+                turn.thread_id,
+                turn.agent_id,
+                exc_info=item,
             )
             yield _sse({"type": "error", "error": str(item)})
             return
 
-        for frame in _stream_event_frames(item, full_text_parts):
+        for frame in _stream_event_frames(item, full_text_parts, turn):
             yield frame
 
 
@@ -374,17 +425,14 @@ async def chat(request: Request) -> Any:
         return {"ok": True, "text": text, "threadId": thread_id, "agentId": agent_id}
 
     async def event_source():
-        # Real cancellation: mirrors src/server.ts's AbortController wired into the
-        # Mastra agent call via res.on("close"). _produce_agent_events() runs
-        # agent.run_stream_events() as its own background task feeding a queue;
-        # _watch_disconnect() polls request.is_disconnected() concurrently and, on
-        # disconnect, we cancel that task outright — so the in-flight LLM/tool call
-        # is actually torn down server-side, not just dropped from what we forward
-        # to a dead connection.
+        # The agent runs as its own task feeding a queue, so a client disconnect
+        # can cancel the in-flight LLM/tool call outright rather than just
+        # dropping what we forward to a dead connection.
         full_text_parts: list[str] = []
         queue: asyncio.Queue[Any] = asyncio.Queue()
         done_marker = object()
         disconnected = asyncio.Event()
+        turn = _ChatTurn(thread_id, agent_id, db.new_id("turn"))
 
         producer = asyncio.create_task(
             _produce_agent_events(agent, message, message_history, model, queue, done_marker)
@@ -393,7 +441,7 @@ async def chat(request: Request) -> Any:
 
         try:
             async for frame in _consume_agent_stream(
-                queue, done_marker, disconnected, full_text_parts, thread_id, agent_id
+                queue, done_marker, disconnected, full_text_parts, turn
             ):
                 yield frame
         finally:
@@ -415,6 +463,8 @@ async def chat(request: Request) -> Any:
             user_message_id = db.save_message(thread_id, "user", message.strip())
         if full_text:
             assistant_message_id = db.save_message(thread_id, "assistant", full_text)
+        if assistant_message_id:
+            db.set_tool_events_message_id(turn.turn_id, assistant_message_id)
         db.touch_thread(thread_id)
 
         if disconnected.is_set():
@@ -447,81 +497,66 @@ async def chat(request: Request) -> Any:
 
 @app.post("/api/research")
 async def api_research(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        mode = payload.get("mode") or "arxiv"
-        if mode == "web":
-            return await web_search(
-                payload.get("query") or "rust concurrency atomics",
-                source=payload.get("source") or "all",
-                max_results=payload.get("maxResults") or 6,
-            )
-        return await arxiv_search(
-            payload.get("query") or "system design storage",
-            max_results=payload.get("maxResults") or 10,
-            sort_by=payload.get("sortBy") or "relevance",
-            search_field=payload.get("searchField") or "all",
+    payload = await request.json()
+    mode = payload.get("mode") or "arxiv"
+    if mode == "web":
+        return await web_search(
+            payload.get("query") or "rust concurrency atomics",
+            source=payload.get("source") or "all",
+            max_results=payload.get("maxResults") or 6,
         )
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    return await arxiv_search(
+        payload.get("query") or "system design storage",
+        max_results=payload.get("maxResults") or 10,
+        sort_by=payload.get("sortBy") or "relevance",
+        search_field=payload.get("searchField") or "all",
+    )
 
 
 @app.get("/api/research/dissections")
 async def api_research_dissections() -> Any:
-    try:
-        papers = read_dissected_papers()
-        return {"ok": True, "dissections": papers}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    papers = read_dissected_papers()
+    return {"ok": True, "dissections": papers}
 
 
 @app.post("/api/research/dissect")
 async def api_research_dissect(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        return await paper_dissect(
-            payload.get("url")
-            or payload.get("arxivId")
-            or payload.get("paperUrlOrId")
-            or "system-design",
-            title_hint=payload.get("title") or payload.get("titleHint") or "",
-            abstract_hint=payload.get("abstract") or payload.get("abstractHint") or "",
-        )
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    payload = await request.json()
+    return await paper_dissect(
+        payload.get("url")
+        or payload.get("arxivId")
+        or payload.get("paperUrlOrId")
+        or "system-design",
+        title_hint=payload.get("title") or payload.get("titleHint") or "",
+        abstract_hint=payload.get("abstract") or payload.get("abstractHint") or "",
+    )
 
 
 @app.post("/api/research/export-evidence")
 async def api_research_export_evidence(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        evidences = read_evidences()
-        new_id = payload.get("id") or f"ev-paper-{datetime.now(UTC).strftime('%f')[-4:]}"
-        new_evidence: L2Evidence = {
-            "id": new_id,
-            "claim": payload.get("claim")
-            or "Empirical claim extracted from the academic literature.",
-            "metric": payload.get("metric") or "Theoretical Validation and Benchmark",
-            "surface": payload.get("surface") or "benchmark",
-            "sourceRef": payload.get("sourceRef")
-            or payload.get("url")
-            or "arXiv Academic Literature",
-            "sourceL1Id": payload.get("sourceL1Id") or "ep-paper-ref",
-            "arcId": payload.get("arcId") or "arc1_behavior",
-            "capabilityId": payload.get("capabilityId"),
-            "reproductionCommand": payload.get("reproductionCommand"),
-            "verifiedBy": "reviewer",
-            "confidence": 1.0,
-            "verifiedAt": datetime.now(UTC).isoformat(),
-            "notes": f"Surgical Citation: {payload['surgicalCitation']}"
-            if payload.get("surgicalCitation")
-            else None,
-        }
-        evidences.insert(0, new_evidence)
-        write_evidences(evidences)
-        return {"ok": True, "evidence": new_evidence, "count": len(evidences)}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    payload = await request.json()
+    evidences = read_evidences()
+    new_id = payload.get("id") or f"ev-paper-{datetime.now(UTC).strftime('%f')[-4:]}"
+    new_evidence: L2Evidence = {
+        "id": new_id,
+        "claim": payload.get("claim") or "Empirical claim extracted from the academic literature.",
+        "metric": payload.get("metric") or "Theoretical Validation and Benchmark",
+        "surface": payload.get("surface") or "benchmark",
+        "sourceRef": payload.get("sourceRef") or payload.get("url") or "arXiv Academic Literature",
+        "sourceL1Id": payload.get("sourceL1Id") or "ep-paper-ref",
+        "arcId": payload.get("arcId") or "arc1_behavior",
+        "capabilityId": payload.get("capabilityId"),
+        "reproductionCommand": payload.get("reproductionCommand"),
+        "verifiedBy": "reviewer",
+        "confidence": 1.0,
+        "verifiedAt": datetime.now(UTC).isoformat(),
+        "notes": f"Surgical Citation: {payload['surgicalCitation']}"
+        if payload.get("surgicalCitation")
+        else None,
+    }
+    evidences.insert(0, new_evidence)
+    write_evidences(evidences)
+    return {"ok": True, "evidence": new_evidence, "count": len(evidences)}
 
 
 # ---------------------------------------------------------------------------
@@ -562,30 +597,21 @@ async def thread_create(request: Request) -> dict:
 
 @app.post("/api/thread/delete")
 async def thread_delete(request: Request) -> Any:
-    payload = await request.json()
-    thread_id = payload.get("threadId")
-    if not thread_id:
-        return JSONResponse({"error": "threadId is required"}, status_code=500)
+    (thread_id,) = _required(await request.json(), "threadId")
     db.delete_thread(thread_id)
     return {"ok": True}
 
 
 @app.post("/api/thread/rename")
 async def thread_rename(request: Request) -> Any:
-    payload = await request.json()
-    thread_id, title = payload.get("threadId"), payload.get("title")
-    if not thread_id or not title:
-        return JSONResponse({"error": "threadId and title required"}, status_code=500)
+    thread_id, title = _required(await request.json(), "threadId", "title")
     db.rename_thread(thread_id, title)
     return {"ok": True}
 
 
 @app.post("/api/thread/clear")
 async def thread_clear(request: Request) -> Any:
-    payload = await request.json()
-    thread_id = payload.get("threadId")
-    if not thread_id:
-        return JSONResponse({"error": "threadId is required"}, status_code=500)
+    (thread_id,) = _required(await request.json(), "threadId")
     db.clear_messages(thread_id)
     db.touch_thread(thread_id)
     return {"ok": True, "threadId": thread_id}
@@ -593,19 +619,14 @@ async def thread_clear(request: Request) -> Any:
 
 @app.post("/api/thread/truncate")
 async def thread_truncate(request: Request) -> Any:
-    payload = await request.json()
-    thread_id, from_message_id = payload.get("threadId"), payload.get("fromMessageId")
-    if not thread_id or not from_message_id:
-        return JSONResponse({"error": "threadId and fromMessageId are required"}, status_code=500)
+    thread_id, from_message_id = _required(await request.json(), "threadId", "fromMessageId")
     db.truncate_from(thread_id, from_message_id)
     db.touch_thread(thread_id)
     return {"ok": True}
 
 
 async def _compact_thread(thread_id: str, keep_last: int = _AUTO_COMPACT_KEEP_LAST) -> dict:
-    """Summarize the old part of a long thread into one compact message,
-    keeping the recent `keep_last` messages intact. Mirrors compactThread()
-    in src/server.ts."""
+    """Summarizes the old part of a long thread, keeping the last `keep_last` messages intact."""
     messages = db.list_messages(thread_id)
 
     if len(messages) <= keep_last + 1:
@@ -662,22 +683,18 @@ async def _compact_thread(thread_id: str, keep_last: int = _AUTO_COMPACT_KEEP_LA
 @app.post("/api/thread/compact")
 async def thread_compact(request: Request) -> Any:
     payload = await request.json()
-    thread_id = payload.get("threadId")
-    if not thread_id:
-        return JSONResponse({"error": "threadId is required"}, status_code=500)
-    try:
-        result = await _compact_thread(
-            thread_id, payload.get("keepLast") or _AUTO_COMPACT_KEEP_LAST
-        )
-        return {"ok": True, **result}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    (thread_id,) = _required(payload, "threadId")
+    result = await _compact_thread(thread_id, payload.get("keepLast") or _AUTO_COMPACT_KEEP_LAST)
+    return {"ok": True, **result}
 
 
 @app.get("/api/thread/messages")
 async def thread_messages(threadId: str = "session-principal") -> dict:
+    thread = db.get_thread(threadId)
     messages = db.list_messages(threadId)
+    tool_events = db.list_tool_events(threadId)
     return {
+        "agentId": (thread or {}).get("agent_id") or "tutor",
         "messages": [
             {
                 "id": m["id"],
@@ -686,7 +703,21 @@ async def thread_messages(threadId: str = "session-principal") -> dict:
                 "createdAt": m["created_at"],
             }
             for m in messages
-        ]
+        ],
+        "toolEvents": [
+            {
+                "id": e["id"],
+                "messageId": e["message_id"],
+                "toolCallId": e["tool_call_id"],
+                "toolName": e["tool_name"],
+                "skillId": e["skill_id"],
+                "args": json.loads(e["args"]) if e["args"] else {},
+                "result": json.loads(e["result"]) if e["result"] else None,
+                "isError": bool(e["is_error"]),
+                "createdAt": e["created_at"],
+            }
+            for e in tool_events
+        ],
     }
 
 
@@ -717,20 +748,10 @@ async def thread_export(threadId: str = "session-principal") -> Any:
 
 @app.get("/api/workspace")
 async def api_workspace() -> dict:
-    ws = workspace_list()
-    try:
-        now = os_read("NOW.md")["content"]
-    except Exception:
-        now = ""
-    try:
-        inbox = os_read("INBOX.md")["content"]
-    except Exception:
-        inbox = ""
     return {
-        "projects": ws["projects"],
-        "archivedProjects": ws["archivedProjects"],
-        "now": now,
-        "inbox": inbox,
+        **workspace_list(),
+        "now": os_read("NOW.md")["content"],
+        "inbox": os_read("INBOX.md")["content"],
     }
 
 
@@ -823,101 +844,116 @@ async def api_memory() -> dict:
     }
 
 
-def _sync_arc_capability_evidence(arc_id: str, capability_id: str, claim: str, ev_id: str) -> None:
-    """Mark a capability verified + link the new evidence id, mirroring evidence_record()'s arc-sync."""
-    try:
-        arcs = read_arcs_data()
-        arc = next((a for a in arcs if a["id"] == arc_id), None)
-        cap = (
-            next((c for c in arc["capabilities"] if c["id"] == capability_id), None)
-            if arc
-            else None
-        )
-        if not cap:
-            return
-        cap["verified"] = True
-        cap["evidence"] = claim
-        cap["evidenceIds"] = sorted(set((cap.get("evidenceIds") or []) + [ev_id]))
-        cap["verifiedAt"] = datetime.now(UTC).isoformat()
-        save_arcs_data(arcs)
-    except Exception as arc_sync_err:
-        print(f"Arc capability sync warning: {arc_sync_err}")
-
-
 # 20.5.1 Memory Audit 3-Layer Graph API (DeepTutor-inspired L1 -> L2 -> L3)
 @app.get("/api/memory/graph")
 async def api_memory_graph() -> Any:
-    try:
-        return get_full_memory_graph()
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    return get_full_memory_graph()
 
 
 @app.get("/api/memory/evidences")
 async def api_memory_evidences(
     arcId: str | None = None, surface: str | None = None, search: str | None = None
 ) -> Any:
-    try:
-        return evidence_list(arc_id=arcId, surface=surface, search=search)
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    return evidence_list(arc_id=arcId, surface=surface, search=search)
 
 
 @app.post("/api/memory/evidence/create")
 async def api_memory_evidence_create(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        evidences = read_evidences()
-        ev_id = payload.get("id") or f"ev-{datetime.now(UTC).strftime('%Y%m%d')}-{_short_id()}"
-        confidence = payload.get("confidence")
-        new_evidence: L2Evidence = {
-            "id": ev_id,
-            "claim": payload.get("claim") or "Proven evidence",
-            "metric": payload.get("metric"),
-            "sourceL1Id": payload.get("sourceL1Id")
-            or f"ep-{datetime.now(UTC).strftime('%Y%m%d')}-01",
-            "sourceRef": payload.get("sourceRef"),
-            "surface": payload.get("surface") or "benchmark",
-            "reproductionCommand": payload.get("reproductionCommand"),
-            "arcId": payload.get("arcId"),
-            "capabilityId": payload.get("capabilityId"),
-            "verifiedBy": payload.get("verifiedBy") or "reviewer",
-            "confidence": confidence if isinstance(confidence, int | float) else 1.0,
-            "verifiedAt": datetime.now(UTC).isoformat(),
-            "notes": payload.get("notes"),
-        }
+    payload = await request.json()
+    evidences = read_evidences()
+    ev_id = payload.get("id") or f"ev-{datetime.now(UTC).strftime('%Y%m%d')}-{short_id()}"
+    confidence = payload.get("confidence")
+    new_evidence: L2Evidence = {
+        "id": ev_id,
+        "claim": payload.get("claim") or "Proven evidence",
+        "metric": payload.get("metric"),
+        "sourceL1Id": payload.get("sourceL1Id") or f"ep-{datetime.now(UTC).strftime('%Y%m%d')}-01",
+        "sourceRef": payload.get("sourceRef"),
+        "surface": payload.get("surface") or "benchmark",
+        "reproductionCommand": payload.get("reproductionCommand"),
+        "arcId": payload.get("arcId"),
+        "capabilityId": payload.get("capabilityId"),
+        "verifiedBy": payload.get("verifiedBy") or "reviewer",
+        "confidence": confidence if isinstance(confidence, int | float) else 1.0,
+        "verifiedAt": datetime.now(UTC).isoformat(),
+        "notes": payload.get("notes"),
+    }
 
-        existing_idx = next((i for i, e in enumerate(evidences) if e.get("id") == ev_id), -1)
-        if existing_idx >= 0:
-            evidences[existing_idx] = new_evidence
-        else:
-            evidences.append(new_evidence)
-        write_evidences(evidences)
+    existing_idx = next((i for i, e in enumerate(evidences) if e.get("id") == ev_id), -1)
+    if existing_idx >= 0:
+        evidences[existing_idx] = new_evidence
+    else:
+        evidences.append(new_evidence)
+    write_evidences(evidences)
 
-        # Auto-verify capability in ARCS.json if capabilityId is provided
-        capability_id = payload.get("capabilityId")
-        arc_id = payload.get("arcId")
-        if capability_id and arc_id:
-            _sync_arc_capability_evidence(arc_id, capability_id, new_evidence["claim"], ev_id)
+    if payload.get("capabilityId") and payload.get("arcId"):
+        link_capability(payload["capabilityId"], new_evidence["claim"], ev_id)
 
-        return {"ok": True, "evidence": new_evidence}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    return {"ok": True, "evidence": new_evidence}
 
 
 @app.post("/api/memory/evidence/delete")
 async def api_memory_evidence_delete(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        ev_id = payload.get("id")
-        if not ev_id:
-            raise ValueError("evidence id is required")
-        evidences = read_evidences()
-        evidences = [e for e in evidences if e.get("id") != ev_id]
-        write_evidences(evidences)
-        return {"ok": True, "evidences": evidences}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    payload = await request.json()
+    ev_id = payload.get("id")
+    if not ev_id:
+        raise ValueError("evidence id is required")
+    evidences = read_evidences()
+    evidences = [e for e in evidences if e.get("id") != ev_id]
+    write_evidences(evidences)
+    return {"ok": True, "evidences": evidences}
+
+
+@app.post("/api/memory/observation/add")
+async def api_memory_observation_add(request: Request) -> Any:
+    payload = await request.json()
+    return observation_capture(payload.get("tag") or "Insight", payload.get("text") or "")
+
+
+@app.post("/api/memory/observation/update")
+async def api_memory_observation_update(request: Request) -> Any:
+    payload = await request.json()
+    index = payload.get("index")
+    if index is None:
+        raise ValueError("index is required")
+    return observation_update(
+        int(index), payload.get("tag") or "Insight", payload.get("text") or ""
+    )
+
+
+@app.post("/api/memory/observation/delete")
+async def api_memory_observation_delete(request: Request) -> Any:
+    payload = await request.json()
+    index = payload.get("index")
+    if index is None:
+        raise ValueError("index is required")
+    return observation_delete(int(index))
+
+
+@app.post("/api/memory/episode/delete")
+async def api_memory_episode_delete(request: Request) -> Any:
+    payload = await request.json()
+    return episodes_delete(
+        index=payload.get("index"),
+        date=payload.get("date"),
+        project_slug=payload.get("projectSlug"),
+        topic=payload.get("topic"),
+    )
+
+
+@app.post("/api/memory/episodes/clear")
+async def api_memory_episodes_clear() -> Any:
+    return episodes_clear()
+
+
+@app.post("/api/memory/purge")
+async def api_memory_purge() -> Any:
+    """Hard reset: clears episodic history, resets observations to the default
+    calibration, and wipes all chat threads/messages/tool events."""
+    episodes_clear()
+    observations_reset()
+    db.delete_all_threads()
+    return {"ok": True}
 
 
 @app.get("/api/meta/overview")
@@ -946,115 +982,98 @@ EXPERIMENTS_PATH = WORKSPACE_ROOT / "_meta" / "EXPERIMENTS.json"
 
 @app.post("/api/rescue")
 async def api_rescue(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        return rescue_diagnose(
-            payload.get("scenario") or "stuck_midway",
-            details=payload.get("notes") or "",
-        )
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    payload = await request.json()
+    return rescue_diagnose(
+        payload.get("scenario") or "stuck_midway",
+        details=payload.get("notes") or "",
+    )
 
 
 @app.get("/api/library")
 async def api_library() -> Any:
-    try:
-        return library_index()
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    return library_index()
 
 
 @app.post("/api/inbox")
 async def api_inbox(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        inbox_path = WORKSPACE_ROOT / "INBOX.md"
-        content = (
-            inbox_path.read_text(encoding="utf-8")
-            if inbox_path.exists()
-            else "# INBOX\n\nIdea holding area — not a task queue.\n\n"
-        )
-        timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
-        idea_entry = (
-            f"\n### [{timestamp}] {payload.get('idea') or 'New Idea'}\n"
-            f"- **Why it seems interesting:** {payload.get('reason') or 'Not specified'}\n"
-            f"- **Possible next step:** {payload.get('nextStep') or 'Not specified'}\n"
-        )
-        content += idea_entry
-        inbox_path.parent.mkdir(parents=True, exist_ok=True)
-        inbox_path.write_text(content, encoding="utf-8")
-        return {"ok": True, "message": "Idea safely captured in INBOX!"}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    payload = await request.json()
+    inbox_path = WORKSPACE_ROOT / "INBOX.md"
+    content = (
+        inbox_path.read_text(encoding="utf-8")
+        if inbox_path.exists()
+        else "# INBOX\n\nIdea holding area — not a task queue.\n\n"
+    )
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
+    idea_entry = (
+        f"\n### [{timestamp}] {payload.get('idea') or 'New Idea'}\n"
+        f"- **Why it seems interesting:** {payload.get('reason') or 'Not specified'}\n"
+        f"- **Possible next step:** {payload.get('nextStep') or 'Not specified'}\n"
+    )
+    content += idea_entry
+    inbox_path.parent.mkdir(parents=True, exist_ok=True)
+    inbox_path.write_text(content, encoding="utf-8")
+    return {"ok": True, "message": "Idea safely captured in INBOX!"}
 
 
 @app.get("/api/experiments")
 async def api_experiments_get() -> Any:
-    try:
-        if not EXPERIMENTS_PATH.exists():
-            initial_exp = [
-                {
-                    "id": "exp-01",
-                    "title": "Tracer Bullet in <15 min before reading documentation",
-                    "hypothesis": (
-                        "Writing the smallest failing code before reading theory "
-                        "reduces choice paralysis."
-                    ),
-                    "tweak": (
-                        "Open the editor and run the first test in <10 lines "
-                        "before opening docs/articles."
-                    ),
-                    "metric": "Time to first green test",
-                    "status": "active",
-                    "createdAt": datetime.now(UTC).strftime("%Y-%m-%d"),
-                }
-            ]
-            EXPERIMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-            EXPERIMENTS_PATH.write_text(
-                json.dumps(initial_exp, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-        data = json.loads(EXPERIMENTS_PATH.read_text(encoding="utf-8"))
-        return {"experiments": data}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    if not EXPERIMENTS_PATH.exists():
+        initial_exp = [
+            {
+                "id": "exp-01",
+                "title": "Tracer Bullet in <15 min before reading documentation",
+                "hypothesis": (
+                    "Writing the smallest failing code before reading theory "
+                    "reduces choice paralysis."
+                ),
+                "tweak": (
+                    "Open the editor and run the first test in <10 lines "
+                    "before opening docs/articles."
+                ),
+                "metric": "Time to first green test",
+                "status": "active",
+                "createdAt": datetime.now(UTC).strftime("%Y-%m-%d"),
+            }
+        ]
+        EXPERIMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        EXPERIMENTS_PATH.write_text(
+            json.dumps(initial_exp, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+    data = json.loads(EXPERIMENTS_PATH.read_text(encoding="utf-8"))
+    return {"experiments": data}
 
 
 @app.post("/api/experiments")
 async def api_experiments_post(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        exps = (
-            json.loads(EXPERIMENTS_PATH.read_text(encoding="utf-8"))
-            if EXPERIMENTS_PATH.exists()
-            else []
+    payload = await request.json()
+    exps = (
+        json.loads(EXPERIMENTS_PATH.read_text(encoding="utf-8"))
+        if EXPERIMENTS_PATH.exists()
+        else []
+    )
+    action = payload.get("action")
+    if action == "add":
+        exps.insert(
+            0,
+            {
+                "id": f"exp-{short_id()}",
+                "title": payload.get("title"),
+                "hypothesis": payload.get("hypothesis"),
+                "tweak": payload.get("tweak"),
+                "metric": payload.get("metric"),
+                "status": "active",
+                "createdAt": datetime.now(UTC).strftime("%Y-%m-%d"),
+            },
         )
-        action = payload.get("action")
-        if action == "add":
-            exps.insert(
-                0,
-                {
-                    "id": f"exp-{_short_id()}",
-                    "title": payload.get("title"),
-                    "hypothesis": payload.get("hypothesis"),
-                    "tweak": payload.get("tweak"),
-                    "metric": payload.get("metric"),
-                    "status": "active",
-                    "createdAt": datetime.now(UTC).strftime("%Y-%m-%d"),
-                },
-            )
-        elif action == "updateStatus":
-            target = next((e for e in exps if e.get("id") == payload.get("id")), None)
-            if target:
-                target["status"] = payload.get("status")
-        elif action == "delete":
-            exps = [e for e in exps if e.get("id") != payload.get("id")]
-        EXPERIMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        EXPERIMENTS_PATH.write_text(
-            json.dumps(exps, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        return {"ok": True, "experiments": exps}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    elif action == "updateStatus":
+        target = next((e for e in exps if e.get("id") == payload.get("id")), None)
+        if target:
+            target["status"] = payload.get("status")
+    elif action == "delete":
+        exps = [e for e in exps if e.get("id") != payload.get("id")]
+    EXPERIMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    EXPERIMENTS_PATH.write_text(json.dumps(exps, indent=2, ensure_ascii=False), encoding="utf-8")
+    return {"ok": True, "experiments": exps}
 
 
 # ---------------------------------------------------------------------------
@@ -1064,124 +1083,101 @@ async def api_experiments_post(request: Request) -> Any:
 
 @app.get("/api/arcs")
 async def api_arcs_get() -> Any:
-    try:
-        arcs = read_arcs_data()
-        return {"arcs": arcs}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    arcs = read_arcs_data()
+    return {"arcs": arcs}
 
 
 @app.post("/api/arcs")
 async def api_arcs_post(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        arcs = payload.get("arcs") or []
-        save_arcs_data(arcs)
-        return {"ok": True, "arcs": arcs}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    payload = await request.json()
+    arcs = payload.get("arcs") or []
+    save_arcs_data(arcs)
+    return {"ok": True, "arcs": arcs}
 
 
 @app.post("/api/arc/update")
 async def api_arc_update(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        arc = payload.get("arc")
-        if not arc or not arc.get("id"):
-            raise ValueError("arc object with id is required")
-        arcs = read_arcs_data()
-        idx = next((i for i, a in enumerate(arcs) if a.get("id") == arc["id"]), -1)
-        now = datetime.now(UTC).isoformat()
-        if idx >= 0:
-            arcs[idx] = {**arcs[idx], **arc, "updatedAt": now}
-        else:
-            arcs.append({**arc, "updatedAt": now})
-        save_arcs_data(arcs)
-        return {"ok": True, "arcs": arcs}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    payload = await request.json()
+    arc = payload.get("arc")
+    if not arc or not arc.get("id"):
+        raise ValueError("arc object with id is required")
+    arcs = read_arcs_data()
+    idx = next((i for i, a in enumerate(arcs) if a.get("id") == arc["id"]), -1)
+    now = datetime.now(UTC).isoformat()
+    if idx >= 0:
+        arcs[idx] = {**arcs[idx], **arc, "updatedAt": now}
+    else:
+        arcs.append({**arc, "updatedAt": now})
+    save_arcs_data(arcs)
+    return {"ok": True, "arcs": arcs}
 
 
 @app.post("/api/arc/verify")
 async def api_arc_verify(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        arc_id = payload.get("arcId")
-        capability_id = payload.get("capabilityId")
-        evidence = payload.get("evidence")
-        if not arc_id or not capability_id:
-            raise ValueError("arcId and capabilityId are required")
-        arcs = read_arcs_data()
-        arc = next((a for a in arcs if a.get("id") == arc_id), None)
-        if not arc:
-            raise ValueError(f"Arc not found: {arc_id}")
-        cap = next((c for c in arc["capabilities"] if c.get("id") == capability_id), None)
-        now = datetime.now(UTC).isoformat()
-        if cap:
-            cap["verified"] = True
-            cap["evidence"] = evidence or "Demonstrated and successfully verified."
-            cap["verifiedAt"] = now
-        else:
-            arc["capabilities"].append({
-                "id": capability_id,
-                "title": capability_id,
-                "verified": True,
-                "evidence": evidence or "Demonstrated and verified successfully.",
-                "verifiedAt": now,
-            })
-        save_arcs_data(arcs)
-        return {"ok": True, "arcs": arcs}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    payload = await request.json()
+    arc_id = payload.get("arcId")
+    capability_id = payload.get("capabilityId")
+    evidence = payload.get("evidence")
+    if not arc_id or not capability_id:
+        raise ValueError("arcId and capabilityId are required")
+    arcs = read_arcs_data()
+    arc = next((a for a in arcs if a.get("id") == arc_id), None)
+    if not arc:
+        raise ValueError(f"Arc not found: {arc_id}")
+    cap = next((c for c in arc["capabilities"] if c.get("id") == capability_id), None)
+    now = datetime.now(UTC).isoformat()
+    if cap:
+        cap["verified"] = True
+        cap["evidence"] = evidence or "Demonstrated and successfully verified."
+        cap["verifiedAt"] = now
+    else:
+        arc["capabilities"].append({
+            "id": capability_id,
+            "title": capability_id,
+            "verified": True,
+            "evidence": evidence or "Demonstrated and verified successfully.",
+            "verifiedAt": now,
+        })
+    save_arcs_data(arcs)
+    return {"ok": True, "arcs": arcs}
 
 
 @app.post("/api/arc/delete")
 async def api_arc_delete(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        arc_id = payload.get("arcId")
-        if not arc_id:
-            raise ValueError("arcId is required")
-        arcs = [a for a in read_arcs_data() if a.get("id") != arc_id]
-        save_arcs_data(arcs)
-        return {"ok": True, "arcs": arcs}
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    payload = await request.json()
+    arc_id = payload.get("arcId")
+    if not arc_id:
+        raise ValueError("arcId is required")
+    arcs = [a for a in read_arcs_data() if a.get("id") != arc_id]
+    save_arcs_data(arcs)
+    return {"ok": True, "arcs": arcs}
 
 
 # ---------------------------------------------------------------------------
-# 10. Session workflow (Inverted Pyramid phase gates, port of
-#     src/mastra/workflows/session.ts — no HTTP caller existed in TS, this
-#     is a new contract, see py/NEXT-PHASES.md for rationale)
+# 10. Session workflow (Inverted Pyramid phase gates)
 # ---------------------------------------------------------------------------
 
 
 @app.post("/api/session/start")
 async def api_session_start(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        return session_start(
-            payload.get("projectSlug"),
-            payload.get("title"),
-            payload.get("objective"),
-            payload.get("stack"),
-        )
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    payload = await request.json()
+    return session_start(
+        payload.get("projectSlug"),
+        payload.get("title"),
+        payload.get("objective"),
+        payload.get("stack"),
+    )
 
 
 @app.post("/api/session/advance")
 async def api_session_advance(request: Request) -> Any:
-    try:
-        payload = await request.json()
-        return session_advance(
-            payload.get("projectSlug"),
-            payload.get("phase"),
-            bool(payload.get("passed")),
-            payload.get("note"),
-        )
-    except Exception as err:
-        return JSONResponse({"error": str(err)}, status_code=500)
+    payload = await request.json()
+    return session_advance(
+        payload.get("projectSlug"),
+        payload.get("phase"),
+        bool(payload.get("passed")),
+        payload.get("note"),
+    )
 
 
 # ---------------------------------------------------------------------------

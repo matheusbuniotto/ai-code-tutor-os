@@ -1,4 +1,4 @@
-"""Port of src/mastra/tools/assignment.ts."""
+"""ASSIGNMENT.md: the structured engineering challenge for a project."""
 
 from __future__ import annotations
 
@@ -88,7 +88,11 @@ def assignment_generate(
 
 
 def assignment_read(project_slug: str) -> dict:
-    """Reads the active project's ASSIGNMENT.md file for review or continuation of the challenge."""
+    """Reads the active project's ASSIGNMENT.md file for review or continuation of the challenge.
+
+    Args:
+        project_slug: Slug of the project to read the assignment from.
+    """
     file_path = WORKSPACE_ROOT / project_slug / "ASSIGNMENT.md"
     if not file_path.exists():
         return {"exists": False, "content": "No active ASSIGNMENT.md in this project."}

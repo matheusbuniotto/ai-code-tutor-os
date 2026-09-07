@@ -1,4 +1,4 @@
-"""Port of src/mastra/agents/researcher.ts."""
+"""Researcher: resolves bounded technical uncertainty against arXiv and the web."""
 
 from __future__ import annotations
 
@@ -48,10 +48,10 @@ TOOL_FUNCTIONS = [
     update_working_memory,
 ]
 
-researcher_agent = Agent(
+agent = Agent(
     get_model(),
     name="researcher",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
-researcher_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)

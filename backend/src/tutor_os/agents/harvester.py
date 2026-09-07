@@ -1,4 +1,4 @@
-"""Port of src/mastra/agents/subagents.ts (harvesterAgent)."""
+"""Harvester: closes the session and is the only writer of PROFILE.md and EPISODES.jsonl."""
 
 from __future__ import annotations
 
@@ -52,10 +52,10 @@ TOOL_FUNCTIONS = [
     update_working_memory,
 ]
 
-harvester_agent = Agent(
+agent = Agent(
     get_model(),
     name="harvester",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
-harvester_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)

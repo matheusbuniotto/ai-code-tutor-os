@@ -1,25 +1,22 @@
-"""Port of src/mastra/tools/os-files.ts.
+"""OS-level workspace files outside any project: NOW.md, INBOX.md, sessions/, reviews/.
 
-OS-level workspace files (outside projects): NOW.md, INBOX.md, sessions/,
-reviews/. Templates in _templates/ are read-only here.
+Templates in _templates/ are readable but not writable.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from tutor_os.storage import WORKSPACE_ROOT
+from tutor_os.storage import WORKSPACE_ROOT, read_text, safe_path, write_text
 
 _FORBIDDEN_WRITE = {"_templates", "_meta"}
 
 
 def _safe_os_path(rel_path: str, for_write: bool = False) -> Path:
-    base = WORKSPACE_ROOT.resolve()
-    full = (base / rel_path).resolve()
-    if full != base and base not in full.parents:
-        raise ValueError(f"Path outside the workspace: {rel_path}")
+    full = safe_path(WORKSPACE_ROOT, rel_path)
     if for_write:
-        top = full.relative_to(base).parts[0] if full != base else ""
+        root = WORKSPACE_ROOT.resolve()
+        top = full.relative_to(root).parts[0] if full != root else ""
         if top in _FORBIDDEN_WRITE:
             raise ValueError(f"Directory protected from writes: {top}")
     return full
@@ -36,8 +33,7 @@ def os_write(path: str, content: str) -> dict:
         content: file content.
     """
     full = _safe_os_path(path, for_write=True)
-    full.parent.mkdir(parents=True, exist_ok=True)
-    full.write_text(content, encoding="utf-8")
+    write_text(full, content)
     return {"ok": True, "fullPath": str(full)}
 
 
@@ -50,7 +46,4 @@ def os_read(path: str) -> dict:
         path: relative to the workspace root, e.g. INBOX.md or _templates/learning-review.md.
     """
     full = _safe_os_path(path, for_write=False)
-    content = (
-        full.read_text(encoding="utf-8") if full.exists() else f"(file does not exist: {path})"
-    )
-    return {"content": content}
+    return {"content": read_text(full, f"(file does not exist: {path})")}

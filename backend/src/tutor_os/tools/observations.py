@@ -1,14 +1,13 @@
-"""Port of src/mastra/tools/observations.ts."""
+"""Semantic memory: short, durable facts about the learner and their projects."""
 
 from __future__ import annotations
 
-import json
 from typing import TypedDict
 
 from tutor_os.config.learner_profile import learner_profile
-from tutor_os.storage import WORKSPACE_ROOT
+from tutor_os.storage import META_DIR, read_json, write_json
 
-OBSERVATIONS_PATH = WORKSPACE_ROOT / "_meta" / "OBSERVATIONS.json"
+OBSERVATIONS_PATH = META_DIR / "OBSERVATIONS.json"
 
 
 class Observation(TypedDict):
@@ -17,7 +16,7 @@ class Observation(TypedDict):
 
 
 def get_default_observations() -> list[Observation]:
-    base: list[Observation] = [
+    defaults: list[Observation] = [
         {
             "tag": "Architecture Method",
             "text": "Inverted Pyramid: 1. Macro Topology → 2. Tracer Bullet → 3. Break Edges → 4. 1-Page Note.",
@@ -28,31 +27,25 @@ def get_default_observations() -> list[Observation]:
         },
     ]
     if learner_profile.has_neuropsych_rescue_profile:
-        tag_suffix = f" • {learner_profile.cognitive_tag}" if learner_profile.cognitive_tag else ""
-        base.insert(
-            0,
-            {
-                "tag": "Profile Calibration",
-                "text": f"{learner_profile.name}{tag_suffix}",
-            },
+        suffix = f" • {learner_profile.cognitive_tag}" if learner_profile.cognitive_tag else ""
+        defaults.insert(
+            0, {"tag": "Profile Calibration", "text": f"{learner_profile.name}{suffix}"}
         )
-    return base
+    return defaults
 
 
 def read_observations() -> list[Observation]:
-    try:
-        if OBSERVATIONS_PATH.exists():
-            return json.loads(OBSERVATIONS_PATH.read_text(encoding="utf-8"))
-    except Exception as err:
-        print(f"Error reading OBSERVATIONS.json: {err}")
-    return get_default_observations()
+    stored = read_json(OBSERVATIONS_PATH)
+    return get_default_observations() if stored is None else stored
 
 
 def write_observations(observations: list[Observation]) -> None:
-    OBSERVATIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OBSERVATIONS_PATH.write_text(
-        json.dumps(observations, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    write_json(OBSERVATIONS_PATH, observations)
+
+
+def _check_index(observations: list[Observation], index: int) -> None:
+    if not 0 <= index < len(observations):
+        raise ValueError(f"Observation index out of range: {index}")
 
 
 def observation_capture(tag: str, text: str) -> dict:
@@ -68,7 +61,33 @@ def observation_capture(tag: str, text: str) -> dict:
         tag: short category, e.g. 'Architecture Decision', 'Preference', 'Blockage Pattern'.
         text: the observation in 1-2 sentences, factual and specific.
     """
-    observations = read_observations()
-    observations.append({"tag": tag, "text": text})
+    new: Observation = {"tag": tag, "text": text}
+    observations = [*read_observations(), new]
     write_observations(observations)
     return {"ok": True, "totalObservations": len(observations)}
+
+
+def observation_update(index: int, tag: str, text: str) -> dict:
+    """Updates an existing observation in place by its position in the list."""
+    observations = read_observations()
+    _check_index(observations, index)
+    updated: Observation = {"tag": tag, "text": text}
+    observations[index] = updated
+    write_observations(observations)
+    return {"ok": True, "observations": observations}
+
+
+def observation_delete(index: int) -> dict:
+    """Deletes an observation by its position in the list."""
+    observations = read_observations()
+    _check_index(observations, index)
+    del observations[index]
+    write_observations(observations)
+    return {"ok": True, "observations": observations}
+
+
+def observations_reset() -> dict:
+    """Resets semantic observations back to the default calibration set."""
+    defaults = get_default_observations()
+    write_observations(defaults)
+    return {"ok": True, "observations": defaults}

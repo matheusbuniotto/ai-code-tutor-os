@@ -1,15 +1,14 @@
-"""Port of src/mastra/tools/meta.ts."""
+"""Meta-learning overview: the NOW focus file, arc progress, and project state."""
 
 from __future__ import annotations
 
-import json
 import re
 from datetime import date
+from pathlib import Path
 
-from tutor_os.storage import WORKSPACE_ROOT
+from tutor_os.storage import META_DIR, WORKSPACE_ROOT, read_json, read_text, write_text
 from tutor_os.tools.arcs import read_arcs_data
 
-META_DIR = WORKSPACE_ROOT / "_meta"
 NOW_PATH = META_DIR / "NOW.md"
 OBS_PATH = META_DIR / "OBSERVATIONS.json"
 EXP_PATH = META_DIR / "EXPERIMENTS.json"
@@ -37,96 +36,60 @@ def _extract_now_project_slug(now_content: str) -> str | None:
 
 
 def clear_now_if_active_project(slug: str) -> None:
-    """Called by workspace-delete / workspace-archive.
+    """Clears the focus when the project it points at is deleted or archived."""
+    if _extract_now_project_slug(read_text(NOW_PATH)) == slug:
+        write_text(NOW_PATH, _empty_now_content())
 
-    If the removed/archived project is the one active in NOW.md, clears the
-    focus instead of leaving a dead reference.
-    """
-    if not NOW_PATH.exists():
-        return
-    content = NOW_PATH.read_text(encoding="utf-8")
-    if _extract_now_project_slug(content) == slug:
-        NOW_PATH.write_text(_empty_now_content(), encoding="utf-8")
+
+def _count(path: Path, key: str) -> int:
+    """Counts a stored collection, tolerating both a bare list and a {key: [...]} wrapper."""
+    data = read_json(path, [])
+    return len(data if isinstance(data, list) else data.get(key, []))
+
+
+def _project_summary(entry: Path) -> dict:
+    spec = read_text(entry / "SPEC.md")
+    title_match = re.search(
+        r"^#\s*SPEC\s*—\s*(?:Projeto\s*\S+\s*\(([^)]+)\)|([^\n]+))", spec, re.MULTILINE
+    )
+    title = entry.name
+    if title_match:
+        title = (title_match.group(1) or title_match.group(2) or entry.name).strip()
+
+    state = read_text(entry / "STATE.md")
+    phase_match = re.search(r"fase:\s*(\d+)", state, re.IGNORECASE)
+    status_match = re.search(r"status:\s*([^\n]+)", state, re.IGNORECASE)
+
+    return {
+        "slug": entry.name,
+        "title": title,
+        "phase": int(phase_match.group(1)) if phase_match else 1,
+        "status": status_match.group(1).strip() if status_match else "in_progress",
+        "hasAssignment": (entry / "ASSIGNMENT.md").exists(),
+    }
 
 
 def meta_overview() -> dict:
     """Returns the full Meta-Learning overview: NOW.md, Arcs, Projects, and Tiny Experiments/observations."""
-    now_content = NOW_PATH.read_text(encoding="utf-8") if NOW_PATH.exists() else ""
+    now_content = read_text(NOW_PATH)
 
     arcs = read_arcs_data()
-    total_capabilities = 0
-    verified_capabilities = 0
-    pending_capabilities: list[dict] = []
-    for a in arcs:
-        for c in a.get("capabilities", []):
-            total_capabilities += 1
-            if c.get("verified"):
-                verified_capabilities += 1
-            else:
-                pending_capabilities.append({
-                    "arcId": a["id"],
-                    "capId": c["id"],
-                    "title": c["title"],
-                })
+    capabilities = [(a, c) for a in arcs for c in a.get("capabilities", [])]
+    pending = [
+        {"arcId": a["id"], "capId": c["id"], "title": c["title"]}
+        for a, c in capabilities
+        if not c.get("verified")
+    ]
 
-    projects: list[dict] = []
-    if WORKSPACE_ROOT.exists():
-        for entry in sorted(WORKSPACE_ROOT.iterdir()):
-            if not entry.is_dir() or entry.name.startswith(".") or entry.name.startswith("_"):
-                continue
-            title = entry.name
-            phase = 1
-            status = "in_progress"
-
-            spec_path = entry / "SPEC.md"
-            if spec_path.exists():
-                spec_text = spec_path.read_text(encoding="utf-8")
-                m = re.search(
-                    r"^#\s*SPEC\s*—\s*(?:Projeto\s*\S+\s*\(([^)]+)\)|([^\n]+))",
-                    spec_text,
-                    re.MULTILINE,
-                )
-                if m:
-                    title = (m.group(1) or m.group(2) or entry.name).strip()
-
-            state_path = entry / "STATE.md"
-            if state_path.exists():
-                state_text = state_path.read_text(encoding="utf-8")
-                phm = re.search(r"fase:\s*(\d+)", state_text, re.IGNORECASE)
-                if phm:
-                    phase = int(phm.group(1))
-                stm = re.search(r"status:\s*([^\n]+)", state_text, re.IGNORECASE)
-                if stm:
-                    status = stm.group(1).strip()
-
-            has_assignment = (entry / "ASSIGNMENT.md").exists()
-            projects.append({
-                "slug": entry.name,
-                "title": title,
-                "phase": phase,
-                "status": status,
-                "hasAssignment": has_assignment,
-            })
-
-    experiments_count = 0
-    if EXP_PATH.exists():
-        try:
-            exps = json.loads(EXP_PATH.read_text(encoding="utf-8"))
-            experiments_count = (
-                len(exps) if isinstance(exps, list) else len(exps.get("experiments", []))
-            )
-        except Exception:
-            pass
-
-    observations_count = 0
-    if OBS_PATH.exists():
-        try:
-            obs = json.loads(OBS_PATH.read_text(encoding="utf-8"))
-            observations_count = (
-                len(obs) if isinstance(obs, list) else len(obs.get("observations", []))
-            )
-        except Exception:
-            pass
+    projects = (
+        [
+            _project_summary(entry)
+            for entry in sorted(WORKSPACE_ROOT.iterdir())
+            if entry.is_dir() and not entry.name.startswith((".", "_"))
+        ]
+        if WORKSPACE_ROOT.exists()
+        else []
+    )
 
     now_slug = _extract_now_project_slug(now_content)
     now_stale = bool(
@@ -137,13 +100,13 @@ def meta_overview() -> dict:
         "now": now_content,
         "arcsSummary": {
             "totalArcs": len(arcs),
-            "totalCapabilities": total_capabilities,
-            "verifiedCapabilities": verified_capabilities,
-            "pendingCapabilities": pending_capabilities[:8],
+            "totalCapabilities": len(capabilities),
+            "verifiedCapabilities": len(capabilities) - len(pending),
+            "pendingCapabilities": pending[:8],
         },
         "projects": projects,
-        "experimentsCount": experiments_count,
-        "observationsCount": observations_count,
+        "experimentsCount": _count(EXP_PATH, "experiments"),
+        "observationsCount": _count(OBS_PATH, "observations"),
         "nowStale": now_stale,
     }
 
@@ -173,6 +136,5 @@ def meta_set_now(
 ## Next Action (< 2min)
 {next_action}
 """
-    NOW_PATH.parent.mkdir(parents=True, exist_ok=True)
-    NOW_PATH.write_text(content, encoding="utf-8")
+    write_text(NOW_PATH, content)
     return {"ok": True, "content": content}

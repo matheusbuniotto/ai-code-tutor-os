@@ -1,55 +1,65 @@
-"""Port of src/mastra/tools/living-library.ts.
+"""Living Architecture Library: catalogs the 1-page architecture notes (Phase 4).
 
-Living Architecture Library: catalogs and synthesizes the 1-page architecture
-notes (Phase 4 of the Inverted Pyramid). Converts learning into permanent
-public/professional assets.
+Turns finished projects into permanent, citable assets.
 """
 
 from __future__ import annotations
 
-from tutor_os.storage import WORKSPACE_ROOT
+from datetime import date
+from pathlib import Path
 
-LIBRARY_INDEX_PATH = WORKSPACE_ROOT / "_meta" / "LIBRARY.md"
+from tutor_os.storage import META_DIR, WORKSPACE_ROOT, read_text, write_text
+
+LIBRARY_INDEX_PATH = META_DIR / "LIBRARY.md"
+NOTE_FILENAME = "04-arquitetura-note.md"
+
+_HEADER = """# Living Architecture Library
+
+*Permanent collection of architecture notes and system invariants (Phase 4 — Inverted Pyramid).*
+
+"""
+_EMPTY = (
+    "*(No architecture notes consolidated yet. Complete Phase 4 of a project to index it here.)*\n"
+)
+
+
+def _note_title(content: str, fallback: str) -> str:
+    return next(
+        (line[2:].strip() for line in content.splitlines() if line.startswith("# ")), fallback
+    )
+
+
+def _project_dirs() -> list[Path]:
+    if not WORKSPACE_ROOT.exists():
+        return []
+    return [
+        e for e in sorted(WORKSPACE_ROOT.iterdir()) if e.is_dir() and not e.name.startswith("_")
+    ]
 
 
 def _rebuild_library_index() -> dict:
-    if not WORKSPACE_ROOT.exists():
-        return {"totalNotes": 0, "notes": []}
-
-    notes: list[dict] = []
-    for entry in sorted(WORKSPACE_ROOT.iterdir()):
-        if not entry.is_dir() or entry.name.startswith("_"):
+    notes = []
+    for entry in _project_dirs():
+        content = read_text(entry / NOTE_FILENAME)
+        if not content:
             continue
-        # Filename kept as-is (on-disk artifact convention, not translated —
-        # see py/README.md i18n scope note / delegation.py's sibling files).
-        note_path = entry / "04-arquitetura-note.md"
-        if note_path.exists():
-            content = note_path.read_text(encoding="utf-8")
-            title = entry.name
-            for line in content.splitlines():
-                if line.startswith("# "):
-                    title = line[2:].strip()
-                    break
-            notes.append({
-                "projectSlug": entry.name,
-                "title": title,
-                "path": f"{entry.name}/04-arquitetura-note.md",
-                "snippet": content[:300].replace("\n", " "),
-            })
+        notes.append({
+            "projectSlug": entry.name,
+            "title": _note_title(content, entry.name),
+            "path": f"{entry.name}/{NOTE_FILENAME}",
+            "snippet": content[:300].replace("\n", " "),
+        })
 
-    markdown_index = "# Living Architecture Library\n\n*Permanent collection of architecture notes and system invariants (Phase 4 — Inverted Pyramid).*\n\n"
-    if not notes:
-        markdown_index += "*(No architecture notes consolidated yet. Complete Phase 4 of a project to index it here.)*\n"
+    if notes:
+        rows = "".join(
+            f"| `{n['projectSlug']}` | **{n['title']}** | [{n['path']}](../{n['path']}) |\n"
+            for n in notes
+        )
+        body = f"| Project | Title | Path |\n|---|---|---|\n{rows}"
     else:
-        markdown_index += "| Project | Title | Path |\n|---|---|---|\n"
-        for n in notes:
-            markdown_index += (
-                f"| `{n['projectSlug']}` | **{n['title']}** | [{n['path']}](../{n['path']}) |\n"
-            )
+        body = _EMPTY
 
-    LIBRARY_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
-    LIBRARY_INDEX_PATH.write_text(markdown_index, encoding="utf-8")
-
+    write_text(LIBRARY_INDEX_PATH, _HEADER + body)
     return {"totalNotes": len(notes), "notes": notes}
 
 
@@ -83,11 +93,6 @@ def library_save_note(
         hidden_traps: Traps, scale limits, concurrency failures, or hidden costs.
         proof_artifact: Command or test that proves the physical intuition gained.
     """
-    project_dir = WORKSPACE_ROOT / project_slug
-    project_dir.mkdir(parents=True, exist_ok=True)
-
-    from datetime import date
-
     note_content = f"""# Architecture Note: {title}
 *Phase 4 — Inverted Pyramid Synthesis | Date: {date.today().isoformat()}*
 
@@ -118,10 +123,6 @@ def library_save_note(
 ```
 """
 
-    # Filename kept as-is (on-disk artifact convention shared with session.py).
-    note_path = project_dir / "04-arquitetura-note.md"
-    note_path.write_text(note_content, encoding="utf-8")
-
+    write_text(WORKSPACE_ROOT / project_slug / NOTE_FILENAME, note_content)
     _rebuild_library_index()
-
-    return {"ok": True, "filePath": f"{project_slug}/04-arquitetura-note.md"}
+    return {"ok": True, "filePath": f"{project_slug}/{NOTE_FILENAME}"}

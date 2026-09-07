@@ -1,15 +1,9 @@
-"""Port of src/mastra/agents/tutor.ts.
+"""Tutor / Navigator: the only agent the learner talks to.
 
-Central entry point and senior Navigator: owns Meta-Learning (NOW, Arcs,
-Workspace), delegates genuinely multi-step specialist work to real agents
-via A2A (Assigner, Researcher — see tutor_os.tools.delegation; Pair and
-Architect are siblings, not delegated to, and not yet ported), and loads
-narrower behavioral modes (challenger/teacher/reviewer/planner/scaffolder/
-breaker) on demand as pydantic-ai-harness Skills instead of spinning up a
-separate agent for each — see backend/.agents/skills/. Those modes are single
-prompt-shaped behaviors with no autonomous tool loop of their own, and
-loading them in-context (rather than delegating) keeps the Tutor's own
-conversation history available, which A2A delegation would otherwise drop.
+Owns meta-learning (NOW, Arcs, Workspace). Delegates multi-step specialist
+work over A2A, and loads narrower behavioral modes as Skills — see
+docs/adr/0002-a2a-delegation-and-skills.md for why those are two mechanisms
+and not one.
 """
 
 from __future__ import annotations
@@ -185,11 +179,11 @@ TOOL_FUNCTIONS = [
 
 SKILLS_DIR = Path(__file__).resolve().parents[3] / ".agents" / "skills"
 
-tutor_agent = Agent(
+agent = Agent(
     get_model(),
     name="tutor",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
     capabilities=[Skills(SKILLS_DIR)],
 )
-tutor_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)

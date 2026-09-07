@@ -1,0 +1,949 @@
+{
+  "arc_create_or_update": {
+    "description": "Creates or updates a custom Capability Arc.",
+    "parameters": {
+      "capabilities": {
+        "anyOf": [
+          {
+            "items": {
+              "$ref": "#/$defs/CapabilityItem"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Capability goals for the arc."
+      },
+      "color": {
+        "default": "emerald",
+        "description": "Badge color (emerald, sky, purple, amber, rose, indigo).",
+        "type": "string"
+      },
+      "description": {
+        "description": "Mental-model and technical-judgment goal.",
+        "type": "string"
+      },
+      "id": {
+        "description": "Unique arc ID (e.g. arc-rust-lowlevel, arc-db-internals).",
+        "type": "string"
+      },
+      "linked_projects": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Slugs of linked projects."
+      },
+      "status": {
+        "default": "in_progress",
+        "description": "in_progress | mastered | backlog.",
+        "enum": [
+          "in_progress",
+          "mastered",
+          "backlog"
+        ],
+        "type": "string"
+      },
+      "title": {
+        "description": "Capability arc title.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "description",
+      "id",
+      "title"
+    ]
+  },
+  "arc_delete": {
+    "description": "Deletes a capability arc by ID.",
+    "parameters": {
+      "arc_id": {
+        "description": "ID of the arc to delete.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "arc_id"
+    ]
+  },
+  "arcs_list": {
+    "description": "Returns all of the learner's custom and planned Capability Arcs, with goals and verified evidence.",
+    "parameters": {},
+    "required": []
+  },
+  "arcs_snapshot_and_reset": {
+    "description": "Saves the current ARCS.json to workspace/_meta/archive/ and resets the active arcs to start from scratch.\n\nNever loses verified evidence. Use when the learner wants to \"forget\" the\nprevious roadmap/arcs without destroying already-verified evidence \u2014 do\nnot use arc_delete or a manual file rewrite for this.",
+    "parameters": {
+      "reason": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Why the roadmap is being reset, stored with the snapshot."
+      }
+    },
+    "required": []
+  },
+  "arxiv_search": {
+    "description": "Searches real academic papers (arXiv, IEEE, ACM, OSDI, VLDB) by phrase or keywords.\n\nReturns multiple articles with citation counts, authors, abstracts, and\ndirect links to ground the architecture.",
+    "parameters": {
+      "max_results": {
+        "default": 10,
+        "description": "1-50, default 10.",
+        "type": "integer"
+      },
+      "query": {
+        "description": "Search term, e.g. \"lsm tree write amplification\".",
+        "type": "string"
+      },
+      "search_field": {
+        "default": "all",
+        "description": "all | ti | au | abs (not used by the current API, kept for parity).",
+        "enum": [
+          "all",
+          "ti",
+          "au",
+          "abs"
+        ],
+        "type": "string"
+      },
+      "sort_by": {
+        "default": "relevance",
+        "description": "relevance | submittedDate | lastUpdatedDate | citations | cited_by_count.",
+        "enum": [
+          "relevance",
+          "submittedDate",
+          "lastUpdatedDate",
+          "citations",
+          "cited_by_count"
+        ],
+        "type": "string"
+      }
+    },
+    "required": [
+      "query"
+    ]
+  },
+  "assignment_generate": {
+    "description": "Generates a structured engineering challenge (Assignment Engine).\n\nCalibrated to expose technical-judgment gaps. Follows the protocol:\nPredict -> Measure -> Mutate -> Explain trade-offs.",
+    "parameters": {
+      "arc_id": {
+        "description": "ID of the matching capability arc (customizable via ARCS.json).",
+        "type": "string"
+      },
+      "explain_phase": {
+        "description": "Judgment questions and architecture defense.",
+        "type": "string"
+      },
+      "implementation_instrument": {
+        "description": "Minimal code or test instrument to run.",
+        "type": "string"
+      },
+      "measure_phase": {
+        "description": "Exact measurement command and metrics to collect.",
+        "type": "string"
+      },
+      "mutate_phase": {
+        "description": "Parameter variations to stress the system.",
+        "type": "string"
+      },
+      "predict_phase": {
+        "description": "Prediction questions to answer before running anything.",
+        "type": "string"
+      },
+      "project_slug": {
+        "description": "Slug of the active project.",
+        "type": "string"
+      },
+      "targeted_gap": {
+        "description": "Specific capability gap to exercise.",
+        "type": "string"
+      },
+      "title": {
+        "description": "Title of the engineering challenge.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "arc_id",
+      "explain_phase",
+      "implementation_instrument",
+      "measure_phase",
+      "mutate_phase",
+      "predict_phase",
+      "project_slug",
+      "targeted_gap",
+      "title"
+    ]
+  },
+  "assignment_read": {
+    "description": "Reads the active project's ASSIGNMENT.md file for review or continuation of the challenge.",
+    "parameters": {
+      "project_slug": {
+        "description": "Slug of the project to read the assignment from.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "project_slug"
+    ]
+  },
+  "capability_verify": {
+    "description": "[HARVESTER / REVIEWER] Records verified empirical evidence for a capability goal within an Arc.",
+    "parameters": {
+      "arc_id": {
+        "description": "ID of the arc holding the capability.",
+        "type": "string"
+      },
+      "capability_id": {
+        "description": "ID of the capability being verified.",
+        "type": "string"
+      },
+      "evidence": {
+        "description": "What proves it \u2014 benchmark, measurement, or artifact.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "arc_id",
+      "capability_id",
+      "evidence"
+    ]
+  },
+  "delegate_to_assigner": {
+    "description": "A2A protocol: delegates to the Assigner Agent the creation of a structured engineering challenge (Predict -> Measure -> Mutate -> Explain) focused on a capability goal or judgment gap.",
+    "parameters": {
+      "capability_or_goal": {
+        "description": "The capability goal or concept to exercise.",
+        "type": "string"
+      },
+      "context": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Context or current implementation of the code."
+      },
+      "project_slug": {
+        "description": "Slug of the active project (e.g. sysdesign-m04-storage).",
+        "type": "string"
+      }
+    },
+    "required": [
+      "capability_or_goal",
+      "project_slug"
+    ]
+  },
+  "episodes_recent": {
+    "description": "Session step 0: lists the last N episodes (most recent first).\n\nUse together with state_read to resume context without asking \"where did we leave off\".",
+    "parameters": {
+      "limit": {
+        "default": 5,
+        "description": "How many episodes to return (1-20).",
+        "type": "integer"
+      },
+      "project_slug": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Filter by project."
+      }
+    },
+    "required": []
+  },
+  "episodes_search": {
+    "description": "Searches past episodes by keyword (topic, extracted content, or connections).\n\nUse to recall \"I've seen this before\" across domains.",
+    "parameters": {
+      "query": {
+        "description": "Keyword to match against topic, extracted content, and connections.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "query"
+    ]
+  },
+  "evidence_list": {
+    "description": "Lists and searches the collection of auditable L2 facts and evidence backing the profile's capabilities.",
+    "parameters": {
+      "arc_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Only return evidence linked to this Capability Arc."
+      },
+      "search": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Keyword to match against the claim and metric."
+      },
+      "surface": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Only return evidence from this surface (benchmark, code_review, ...)."
+      }
+    },
+    "required": []
+  },
+  "evidence_record": {
+    "description": "[REVIEWER / HARVESTER] Records an auditable L2 fact with an explicit pointer to the L1 trace and the L3 Arc.\n\nUse whenever a benchmark, test, or challenge has been proven.",
+    "parameters": {
+      "arc_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "ID of the linked Capability Arc."
+      },
+      "capability_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "ID of the specific capability proven."
+      },
+      "claim": {
+        "description": "Concrete technical statement or proven empirical conclusion.",
+        "type": "string"
+      },
+      "confidence": {
+        "default": 1.0,
+        "description": "Confidence (0-1).",
+        "type": "number"
+      },
+      "metric": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Measurable metric (e.g. 'p99 < 1.2ms @ 45k ops/s')."
+      },
+      "notes": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Additional notes."
+      },
+      "reproduction_command": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Exact command to reproduce it."
+      },
+      "source_l1_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "ID of the source L1 trace or episode."
+      },
+      "source_ref": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Path to the code/benchmark file or log."
+      },
+      "surface": {
+        "default": "benchmark",
+        "description": "benchmark | code_review | architecture_note | challenge | rescue | chat.",
+        "enum": [
+          "benchmark",
+          "code_review",
+          "architecture_note",
+          "challenge",
+          "rescue",
+          "chat"
+        ],
+        "type": "string"
+      }
+    },
+    "required": [
+      "claim"
+    ]
+  },
+  "gate_check": {
+    "description": "Runs the 3-Gate Leverage Filter for Work or Personal Study/Project.\n\nReturns the structured verdict (GO, DELEGATE_AUTOMATE_ASYNC, POSTPONE_RECORD),\nrationale, and an anti-impostor anchor grounded in concrete evidence when applicable.",
+    "parameters": {
+      "context": {
+        "description": "Context of the demand: corporate work (Tech Lead) or personal study/lab.",
+        "enum": [
+          "work",
+          "personal_study"
+        ],
+        "type": "string"
+      },
+      "impostor_doubt_expressed": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Competency doubt expressed by the user, if any."
+      },
+      "personal_cluster_deepening": {
+        "default": false,
+        "description": "Study Gate 1: deepens an existing cluster/project (not a from-scratch novelty)?",
+        "type": "boolean"
+      },
+      "personal_demand_and_no_abandon_trap": {
+        "default": false,
+        "description": "Study Gate 4: high/stable demand through 2027-2030, with no history of similar abandonment?",
+        "type": "boolean"
+      },
+      "personal_topology_before_syntax": {
+        "default": false,
+        "description": "Study Gate 3: is the first step mapping invariants on paper?",
+        "type": "boolean"
+      },
+      "personal_tracer_bullet_fit": {
+        "default": false,
+        "description": "Study Gate 2: fits in an end-to-end tracer bullet within one focused session?",
+        "type": "boolean"
+      },
+      "topic": {
+        "description": "Theme or idea being evaluated.",
+        "type": "string"
+      },
+      "work_career_moat": {
+        "default": false,
+        "description": "Work Gate 3: produces a public asset (case study/RFC) with demand through 2027-2030?",
+        "type": "boolean"
+      },
+      "work_high_abstraction": {
+        "default": false,
+        "description": "Work Gate 1: AI architecture, data schema, reliability, or evaluation?",
+        "type": "boolean"
+      },
+      "work_squad_multiplier": {
+        "default": false,
+        "description": "Work Gate 2: becomes a playbook, reusable template, or CI/CD guardrail?",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "context",
+      "topic"
+    ]
+  },
+  "invoke_researcher": {
+    "description": "A2A protocol: delegates a technical question or scientific-literature search to the Researcher Agent (arXiv).",
+    "parameters": {
+      "context": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Architectural context or system constraints."
+      },
+      "question": {
+        "description": "The specific technical question or uncertainty to research.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "question"
+    ]
+  },
+  "library_index": {
+    "description": "Lists and indexes all 1-page Architecture Notes created in Phase 4 of the projects.\n\nReturns the assets cataloged in the Living Architecture Library with their invariants and trade-offs.",
+    "parameters": {},
+    "required": []
+  },
+  "library_save_note": {
+    "description": "Saves a 1-page Architecture Note (Phase 4 of the Inverted Pyramid).\n\nRequires a strict format: Core Invariants | When to Use vs. Not Use | Traps and Failures.",
+    "parameters": {
+      "hidden_traps": {
+        "description": "Traps, scale limits, concurrency failures, or hidden costs.",
+        "type": "string"
+      },
+      "invariants": {
+        "description": "Fundamental invariants and data/execution model.",
+        "type": "string"
+      },
+      "project_slug": {
+        "description": "Project slug (lowercase, hyphens).",
+        "type": "string"
+      },
+      "proof_artifact": {
+        "description": "Command or test that proves the physical intuition gained.",
+        "type": "string"
+      },
+      "title": {
+        "description": "Note title.",
+        "type": "string"
+      },
+      "when_not_to_use": {
+        "description": "Contra-indication or overkill scenarios.",
+        "type": "string"
+      },
+      "when_to_use": {
+        "description": "Ideal application scenarios.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "hidden_traps",
+      "invariants",
+      "project_slug",
+      "proof_artifact",
+      "title",
+      "when_not_to_use",
+      "when_to_use"
+    ]
+  },
+  "meta_overview": {
+    "description": "Returns the full Meta-Learning overview: NOW.md, Arcs, Projects, and Tiny Experiments/observations.",
+    "parameters": {},
+    "required": []
+  },
+  "meta_set_now": {
+    "description": "Updates the NOW.md file (active focus) with active project, mission, objective, and next action <2min.",
+    "parameters": {
+      "mission": {
+        "description": "Title of the active mission.",
+        "type": "string"
+      },
+      "next_action": {
+        "description": "Next physical micro-action <2min.",
+        "type": "string"
+      },
+      "objective": {
+        "description": "Observable objective / success criterion.",
+        "type": "string"
+      },
+      "phase": {
+        "default": 1,
+        "description": "Current phase (1 to 4).",
+        "type": "integer"
+      },
+      "project_slug": {
+        "description": "Slug of the active project in the workspace.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "mission",
+      "next_action",
+      "objective",
+      "project_slug"
+    ]
+  },
+  "observation_capture": {
+    "description": "Records a short, durable observation about the learner or the project as soon as it's noticed.\n\nDon't wait for session close or ask permission. Use for concrete facts\n(a decision made, an expressed preference, a project direction change, an\nobserved blockage pattern, a demonstrated capability). Do NOT use for\nopinions, unconfirmed hypotheses, or repeats of what's already recorded \u2014\nprefer a few high-quality observations over many trivial ones.",
+    "parameters": {
+      "tag": {
+        "description": "short category, e.g. 'Architecture Decision', 'Preference', 'Blockage Pattern'.",
+        "type": "string"
+      },
+      "text": {
+        "description": "the observation in 1-2 sentences, factual and specific.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "tag",
+      "text"
+    ]
+  },
+  "os_read": {
+    "description": "Reads a file at the workspace's OS level.\n\nNOW.md, INBOX.md, templates in _templates/, sessions and reviews.",
+    "parameters": {
+      "path": {
+        "description": "relative to the workspace root, e.g. INBOX.md or _templates/learning-review.md.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "path"
+    ]
+  },
+  "os_write": {
+    "description": "Writes a file at the workspace's OS level (outside projects).\n\nNOW.md, INBOX.md, sessions/<date>-<topic>.md, reviews/<file>. Does not\nallow writing to _templates/ or _meta/.",
+    "parameters": {
+      "content": {
+        "description": "file content.",
+        "type": "string"
+      },
+      "path": {
+        "description": "relative to the workspace root, e.g. NOW.md.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "content",
+      "path"
+    ]
+  },
+  "paper_dissect": {
+    "description": "Dissects an academic paper (arXiv, DOI, URL, or title) in the DeepTutor PageIndex format.\n\nExtracts the structured section/page index, mathematical theorems,\nempirical benchmark metrics, surgical citations [Author et al., Year,\np. X, \u00a7Y], and a suggested auditable L2 evidence entry.",
+    "parameters": {
+      "abstract_hint": {
+        "default": "",
+        "description": "Optional abstract to speed up the analysis.",
+        "type": "string"
+      },
+      "paper_url_or_id": {
+        "description": "Paper URL, arXiv ID, or DOI.",
+        "type": "string"
+      },
+      "title_hint": {
+        "default": "",
+        "description": "Optional title to enrich the search if the URL is incomplete.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "paper_url_or_id"
+    ]
+  },
+  "phase_set": {
+    "description": "Updates the phase (1-4) and status in the project's STATE.md.\n\nPhases: 1=macro-topology, 2=tracer-bullet, 3=break-edges, 4=architecture-note.",
+    "parameters": {
+      "note": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "optional log note."
+      },
+      "phase": {
+        "description": "1 to 4.",
+        "type": "integer"
+      },
+      "project_slug": {
+        "description": "project slug.",
+        "type": "string"
+      },
+      "status": {
+        "description": "em-andamento | concluido | pausado.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "phase",
+      "project_slug",
+      "status"
+    ]
+  },
+  "rescue_diagnose": {
+    "description": "Diagnoses cognitive/operational blockages using the 2E matrix calibrated to the report.\n\nReturns the real neuropsychological cause and the ONE immediate prescribed action.",
+    "parameters": {
+      "details": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Context or phrase said by the user."
+      },
+      "scenario": {
+        "description": "Observed blockage scenario.",
+        "enum": [
+          "stuck_midway",
+          "dont_know_how_to_start",
+          "infinite_analysis",
+          "works_but_could_be_better",
+          "not_understanding_anything",
+          "flat_tone_iceberg",
+          "impostor_syndrome_comparison",
+          "perfect_architecture_never_runs"
+        ],
+        "type": "string"
+      }
+    },
+    "required": [
+      "scenario"
+    ]
+  },
+  "state_read": {
+    "description": "Mandatory session Step 0: returns the learner's dynamic profile.\n\n(levels, blockage patterns, rewards, microvictories). Combine with working\nmemory. NEVER ask 'where did we leave off' \u2014 this file answers that.",
+    "parameters": {},
+    "required": []
+  },
+  "update_working_memory": {
+    "description": "Updates a section of the Learner Profile (working memory) \u2014 call whenever you notice a\ndurable fact about the learner (stack level, blockage pattern, microvictory, what\nworked/didn't work). Replaces the entire section with the new content.",
+    "parameters": {
+      "content": {
+        "description": "New full content of the section (replaces the previous one).",
+        "type": "string"
+      },
+      "section": {
+        "description": "Section of the Learner Profile to update.",
+        "enum": [
+          "cognitive-affective-profile",
+          "levels-by-stack",
+          "easy-calibration",
+          "blockage-patterns",
+          "rewards-policy",
+          "microvictories"
+        ],
+        "type": "string"
+      }
+    },
+    "required": [
+      "content",
+      "section"
+    ]
+  },
+  "web_search": {
+    "description": "Broad, free search across the technical web (StackOverflow, GitHub, Wikipedia, Hacker News).\n\nReturns articles, algorithm explanations, technical discussions,\ndocumentation, and real code implementations with no API key required.",
+    "parameters": {
+      "max_results": {
+        "default": 6,
+        "description": "1-20, default 6.",
+        "type": "integer"
+      },
+      "query": {
+        "description": "Web search term.",
+        "type": "string"
+      },
+      "source": {
+        "default": "all",
+        "description": "all | web | stackoverflow | github | wikipedia.",
+        "enum": [
+          "all",
+          "web",
+          "stackoverflow",
+          "github",
+          "wikipedia"
+        ],
+        "type": "string"
+      }
+    },
+    "required": [
+      "query"
+    ]
+  },
+  "workspace_archive": {
+    "description": "Archives/completes or restores a project by moving it between workspace/ and workspace/_archive/.",
+    "parameters": {
+      "action": {
+        "default": "archive",
+        "description": "archive | restore.",
+        "type": "string"
+      },
+      "project_slug": {
+        "description": "project slug (min. 1 char).",
+        "type": "string"
+      }
+    },
+    "required": [
+      "project_slug"
+    ]
+  },
+  "workspace_delete": {
+    "description": "Safely deletes an artifact file or an entire project inside workspace/ or workspace/_archive/.",
+    "parameters": {
+      "is_archived": {
+        "default": false,
+        "description": "target workspace/_archive/ instead of the active workspace.",
+        "type": "boolean"
+      },
+      "path": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "relative file to delete inside the project, or inside the workspace if no slug."
+      },
+      "project_slug": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "project to delete; without `path`, deletes the whole project."
+      }
+    },
+    "required": []
+  },
+  "workspace_init": {
+    "description": "Creates the folder structure for a new learning project inside workspace/.\n\nCall BEFORE writing any artifact. Returns the created paths.",
+    "parameters": {
+      "objective": {
+        "description": "Project objective (min. 10 chars).",
+        "type": "string"
+      },
+      "project_slug": {
+        "description": "e.g. sysdesign-mod01-latency.",
+        "type": "string"
+      },
+      "stack": {
+        "description": "Technology stack.",
+        "type": "string"
+      },
+      "title": {
+        "description": "Project title (min. 3 chars).",
+        "type": "string"
+      }
+    },
+    "required": [
+      "objective",
+      "project_slug",
+      "stack",
+      "title"
+    ]
+  },
+  "workspace_list": {
+    "description": "Lists active and archived projects in workspace/ and all their files recursively.",
+    "parameters": {},
+    "required": []
+  },
+  "workspace_read": {
+    "description": "Reads an artifact from the active or archived project.",
+    "parameters": {
+      "is_archived": {
+        "default": false,
+        "description": "read from workspace/_archive/ instead of the active project.",
+        "type": "boolean"
+      },
+      "path": {
+        "description": "relative to the project folder, e.g. 01-topology/mapa.md.",
+        "type": "string"
+      },
+      "project_slug": {
+        "description": "project slug.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "path",
+      "project_slug"
+    ]
+  },
+  "workspace_write": {
+    "description": "Writes an artifact inside the active project's folder.\n\nPath is relative to the project; it cannot leave the folder.",
+    "parameters": {
+      "content": {
+        "description": "file content.",
+        "type": "string"
+      },
+      "path": {
+        "description": "relative to the project folder, e.g. 01-topology/mapa.md.",
+        "type": "string"
+      },
+      "project_slug": {
+        "description": "project slug.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "content",
+      "path",
+      "project_slug"
+    ]
+  }
+}

@@ -1,9 +1,7 @@
-"""Port of src/mastra/model.ts.
+"""Runtime-switchable model config against an OpenAI-compatible gateway.
 
-Runtime-switchable model config against an OpenAI-compatible gateway
-(OpenCode Zen by default). pydantic-ai lets us pass a Model instance per
-`agent.run(..., model=...)` call, so switching models at runtime doesn't
-require rebuilding the Agent.
+pydantic-ai takes a Model per `agent.run(...)`, so switching at runtime never
+rebuilds an Agent.
 """
 
 from __future__ import annotations

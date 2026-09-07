@@ -1,18 +1,16 @@
-"""Port of src/mastra/tools/state.ts.
+"""The learner's dynamic profile in PROFILE.md.
 
-Learner's dynamic state lives in workspace/_meta/PROFILE.md. Read: any agent
-(state_read at session start — Step 0). Write: ONLY the Harvester
-(single-writer principle) via state_update.
+Read by any agent at session start (Step 0); written only by the Harvester.
 """
 
 from __future__ import annotations
 
-import re
-from typing import Literal
+from typing import Literal, get_args
 
-from tutor_os.storage import WORKSPACE_ROOT
+from tutor_os.markdown import replace_section
+from tutor_os.storage import META_DIR, read_text, write_text
 
-PROFILE_PATH = WORKSPACE_ROOT / "_meta" / "PROFILE.md"
+PROFILE_PATH = META_DIR / "PROFILE.md"
 
 Section = Literal[
     "levels-by-stack",
@@ -22,13 +20,7 @@ Section = Literal[
     "microvictories",
 ]
 
-_SECTIONS: tuple[Section, ...] = (
-    "levels-by-stack",
-    "easy-boilerplate",
-    "blockage-patterns",
-    "rewards-policy",
-    "microvictories",
-)
+_EMPTY_PROFILE = "# PROFILE\n(empty — first session; calibrate before creating a spec)"
 
 
 def state_read() -> dict:
@@ -37,11 +29,7 @@ def state_read() -> dict:
     (levels, blockage patterns, rewards, microvictories). Combine with working
     memory. NEVER ask 'where did we leave off' — this file answers that.
     """
-    if PROFILE_PATH.exists():
-        profile = PROFILE_PATH.read_text(encoding="utf-8")
-    else:
-        profile = "# PROFILE\n(empty — first session; calibrate before creating a spec)"
-    return {"profile": profile}
+    return {"profile": read_text(PROFILE_PATH, _EMPTY_PROFILE)}
 
 
 def state_update(section: Section, content: str) -> dict:
@@ -49,21 +37,7 @@ def state_update(section: Section, content: str) -> dict:
 
     Replaces the entire section with the new content.
     """
-    if PROFILE_PATH.exists():
-        body = PROFILE_PATH.read_text(encoding="utf-8")
-    else:
-        sections_block = "\n".join(f"## {s}\n" for s in _SECTIONS)
-        body = f"# PROFILE (dynamic)\n\n{sections_block}"
-
-    header = f"## {section}"
-    pattern = re.compile(rf"{re.escape(header)}\n[\s\S]*?(?=\n## |$)")
-    replacement = f"{header}\n{content}\n"
-    body = (
-        pattern.sub(replacement, body, count=1)
-        if pattern.search(body)
-        else f"{body}\n{replacement}"
-    )
-
-    PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    PROFILE_PATH.write_text(body, encoding="utf-8")
+    blank = "\n".join(f"## {s}\n" for s in get_args(Section))
+    body = read_text(PROFILE_PATH, f"# PROFILE (dynamic)\n\n{blank}")
+    write_text(PROFILE_PATH, replace_section(body, f"## {section}", content))
     return {"ok": True}

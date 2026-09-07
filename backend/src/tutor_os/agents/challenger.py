@@ -1,4 +1,4 @@
-"""Port of src/mastra/agents/challenger.ts."""
+"""Challenger: attacks the mental model instead of explaining it."""
 
 from __future__ import annotations
 
@@ -40,10 +40,10 @@ TOOL_FUNCTIONS = [
     update_working_memory,
 ]
 
-challenger_agent = Agent(
+agent = Agent(
     get_model(),
     name="challenger",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
-challenger_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)
