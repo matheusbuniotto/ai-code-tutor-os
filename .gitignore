@@ -11,6 +11,8 @@ __pycache__/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
 
+.claude/worktrees/
+
 # Personal progress data — workspace/_meta_example ships as the onboarding
 # template; storage.py seeds a real workspace/_meta from it on first run.
 workspace/_meta/
