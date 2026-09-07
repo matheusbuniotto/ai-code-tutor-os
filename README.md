@@ -162,46 +162,30 @@ Learning in Tutor OS is structured into **Capability Arcs** (`workspace/_meta/AR
 
 ## 🚀 Quick Start
 
-### Backend & Web UI
+### Backend & Web UI (one command)
 
-Prerequisites: Python 3.12+ and [`uv`](https://docs.astral.sh/uv/).
+Prerequisites: Python 3.12+ and [`uv`](https://docs.astral.sh/uv/). There's no separate frontend process — the backend serves it directly.
+
+```bash
+cp backend/.env.example backend/.env   # first time only — then edit backend/.env with your API key
+./start.sh
+```
+
+`start.sh` syncs dependencies, exports `backend/.env`, and boots the server on port `4115` (both the API and the frontend UI live there — open <http://localhost:4115>).
+
+Prefer running it by hand?
 
 ```bash
 cd backend
 uv sync
-cp .env.example .env
-```
-
-Edit `.env` with your API key (`OPENCODE_API_KEY` or `OPENAI_API_KEY`). Because there is no dotenv loader wired into the Python process, export it in your shell:
-
-```bash
-export $(cat .env | xargs)
-uv run uvicorn tutor_os.server:app --port 4115 --reload
-```
-
-Open <http://localhost:4115>. The frontend is served directly by FastAPI.
-
-### Desktop Shell (Tauri 2)
-
-Prerequisites: [Rust and Cargo](https://rustup.rs/).
-### 1. Backend Setup
-
-Prerequisites: Python 3.11+ and [`uv`](https://docs.astral.sh/uv/).
-
-```bash
-cd backend
-cp .env.example .env
-# Edit .env with your OpenAI or OpenCode compatible API key
-
-# Run the backend server
+cp .env.example .env   # then edit it with your API key (OPENCODE_API_KEY or OPENAI_API_KEY)
+export $(grep -v '^#' .env | xargs)
 uv run tutor-os-py
 ```
 
-The server boots on port `4115` by default, exposing SSE streaming endpoints and serving the frontend.
+### Desktop Shell (Tauri 2)
 
-### 2. Desktop App (Tauri)
-
-Prerequisites: [Rust & Cargo](https://rustup.rs/).
+Prerequisites: [Rust and Cargo](https://rustup.rs/). The Tauri shell spawns the backend process itself, so start it directly instead of running `start.sh` first.
 
 ```bash
 cd desktop/src-tauri

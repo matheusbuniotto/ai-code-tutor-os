@@ -37,9 +37,9 @@ export async function loadArcsData() {
       if (container) {
         container.innerHTML = `
           <div class="p-4 text-center space-y-2">
-            <div class="text-xs text-zinc-400">Nenhum arco de capacidade configurado.</div>
+            <div class="text-xs text-zinc-400">No capability arc configured yet.</div>
             <button onclick="openNewArcModal()" class="px-3 py-1.5 rounded-lg btn-primary text-xs font-bold shadow-sm">
-              + Criar Meu Primeiro Arco
+              + Create My First Arc
             </button>
           </div>
         `;
@@ -49,7 +49,7 @@ export async function loadArcsData() {
 
     renderArcsList();
   } catch (err) {
-    if (container) container.innerHTML = `<div class="p-3 text-red-400 text-xs">Erro ao carregar arcos: ${err.message}</div>`;
+    if (container) container.innerHTML = `<div class="p-3 text-red-400 text-xs">Error loading arcs: ${err.message}</div>`;
   }
 }
 
@@ -77,13 +77,13 @@ export function renderArcsList() {
           </div>
           <div class="flex items-center gap-1 shrink-0">
             <span class="text-[10px] font-mono text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">${verifiedCount}/${caps.length}</span>
-            <button onclick="openEditArcModal('${escapeHtml(arc.id)}')" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Editar Arco">
+            <button onclick="openEditArcModal('${escapeHtml(arc.id)}')" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Edit Arc">
               <i data-lucide="edit-3" class="w-3.5 h-3.5 pointer-events-none"></i>
             </button>
-            <button onclick="promptDeleteArc('${escapeHtml(arc.id)}', '${escapeHtml(arc.title || arc.id)}')" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-red-400 cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Excluir Arco">
+            <button onclick="promptDeleteArc('${escapeHtml(arc.id)}', '${escapeHtml(arc.title || arc.id)}')" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-red-400 cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Delete Arc">
               <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
             </button>
-            <button onclick="promptAddCapability('${escapeHtml(arc.id)}')" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Adicionar Meta de Julgamento">
+            <button onclick="promptAddCapability('${escapeHtml(arc.id)}')" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Add Judgment Goal">
               <i data-lucide="plus" class="w-3.5 h-3.5 pointer-events-none"></i>
             </button>
           </div>
@@ -97,18 +97,18 @@ export function renderArcsList() {
               <div class="p-2 rounded-lg bg-zinc-950/50 hover:bg-zinc-900 border ${isDone ? 'border-emerald-500/40' : 'border-zinc-800'} transition-all flex flex-col gap-1 group">
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-1.5 flex-1 min-w-0">
-                    <button onclick="toggleArcCapabilityVerified('${escapeHtml(arc.id)}', '${escapeHtml(cap.id)}', ${isDone})" title="${isDone ? 'Meta Verificada' : 'Marcar como Verificada'}" class="shrink-0 cursor-pointer app-no-drag" data-tauri-drag-region="false">
+                    <button onclick="toggleArcCapabilityVerified('${escapeHtml(arc.id)}', '${escapeHtml(cap.id)}', ${isDone})" title="${isDone ? 'Verified Goal' : 'Mark as Verified'}" class="shrink-0 cursor-pointer app-no-drag" data-tauri-drag-region="false">
                       <i data-lucide="${isDone ? 'check-circle-2' : 'circle'}" class="w-3.5 h-3.5 pointer-events-none ${isDone ? 'text-emerald-400 fill-emerald-500/20' : 'text-zinc-500 group-hover:text-zinc-400'}"></i>
                     </button>
                     <span class="text-xs text-zinc-200 font-medium leading-tight ${isDone ? 'text-emerald-300' : ''}">${escapeHtml(cap.title)}</span>
                   </div>
 
                   <div class="flex items-center gap-1 shrink-0">
-                    <button onclick="generateAssignmentForCapability('${escapeHtml(arc.id)}', '${escapeHtml(cap.id)}', '${escapeHtml(cap.title)}')" title="Gerar Desafio de Engenharia (Assigner)" class="px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm cursor-pointer app-no-drag" data-tauri-drag-region="false">
+                    <button onclick="generateAssignmentForCapability('${escapeHtml(arc.id)}', '${escapeHtml(cap.id)}', '${escapeHtml(cap.title)}')" title="Generate Engineering Challenge (Assigner)" class="px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm cursor-pointer app-no-drag" data-tauri-drag-region="false">
                       <i data-lucide="zap" class="w-3 h-3 pointer-events-none"></i>
-                      <span>Desafio</span>
+                      <span>Challenge</span>
                     </button>
-                    <button onclick="removeCapability('${escapeHtml(arc.id)}', '${escapeHtml(cap.id)}')" class="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-500 hover:text-red-400 transition-opacity cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Remover Meta">
+                    <button onclick="removeCapability('${escapeHtml(arc.id)}', '${escapeHtml(cap.id)}')" class="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-500 hover:text-red-400 transition-opacity cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Remove Goal">
                       <i data-lucide="x" class="w-3 h-3 pointer-events-none"></i>
                     </button>
                   </div>
@@ -211,7 +211,7 @@ export function openEditArcModal(arcId) {
   document.getElementById('new-arc-desc').value = arc.description || '';
   document.getElementById('new-arc-color').value = arc.color || 'emerald';
   document.getElementById('new-arc-caps').value = (arc.capabilities || []).map(c => c.title).join('\n');
-  document.getElementById('arc-modal-heading').textContent = `Editar Arco: ${arc.id}`;
+  document.getElementById('arc-modal-heading').textContent = `Edit Arc: ${arc.id}`;
 
   document.getElementById('arc-custom-modal').classList.remove('hidden');
 }
@@ -226,13 +226,13 @@ export async function saveAllArcs() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     loadArcsData();
   } catch (err) {
-    alert(`Erro ao salvar arcos: ${err.message}`);
+    alert(`Error saving arcs: ${err.message}`);
   }
 }
 
 export function generateAssignmentForCapability(arcId, capId, capTitle) {
   setSidebarTab('chat');
-  quickPrompt(`[ASSIGNMENT REQUEST]\nArco: ${arcId}\nMeta: ${capTitle}\n\nGere um desafio de engenharia estruturado no protocolo Predict ➔ Measure ➔ Mutate ➔ Explain para exercitar e expor essa lacuna de julgamento.`);
+  quickPrompt(`[ASSIGNMENT REQUEST]\nArc: ${arcId}\nGoal: ${capTitle}\n\nGenerate a structured engineering challenge in the Predict ➔ Measure ➔ Mutate ➔ Explain protocol to exercise and expose this judgment gap.`);
 }
 
 export function openNewArcModal() {
@@ -242,7 +242,7 @@ export function openNewArcModal() {
   document.getElementById('new-arc-desc').value = '';
   document.getElementById('new-arc-color').value = 'emerald';
   document.getElementById('new-arc-caps').value = '';
-  document.getElementById('arc-modal-heading').textContent = 'Criar Novo Arco de Capacidade';
+  document.getElementById('arc-modal-heading').textContent = 'Create New Capability Arc';
   document.getElementById('arc-custom-modal').classList.remove('hidden');
 }
 export function closeNewArcModal() {
@@ -287,7 +287,7 @@ export async function handleCreateArcSubmit(e) {
     closeNewArcModal();
     loadArcsData();
   } catch (err) {
-    alert(`Erro ao salvar arco: ${err.message}`);
+    alert(`Error saving arc: ${err.message}`);
   }
 }
 

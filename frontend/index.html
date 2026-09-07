@@ -204,15 +204,15 @@
           <div class="flex items-center gap-1">
             <button onclick="openNewProjectModal()" class="px-2 py-0.5 rounded btn-primary text-[10px] font-bold flex items-center gap-1 shadow-sm cursor-pointer app-no-drag" data-tauri-drag-region="false">
               <i data-lucide="plus" class="w-3 h-3 pointer-events-none"></i>
-              <span>Projeto</span>
+              <span>Project</span>
             </button>
-            <button onclick="loadWorkspaceData()" class="text-[10px] text-zinc-400 hover:text-white p-1 cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Atualizar Workspace">↻</button>
+            <button onclick="loadWorkspaceData()" class="text-[10px] text-zinc-400 hover:text-white p-1 cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Refresh Workspace">↻</button>
           </div>
         </div>
 
         <div id="workspace-tree" class="flex-1 min-h-0 overflow-y-auto space-y-2 text-xs font-code pr-1">
           <!-- Dynamic Project Folders & Files -->
-          <div class="text-zinc-500 p-2 text-xs">Carregando workspace...</div>
+          <div class="text-zinc-500 p-2 text-xs">Loading workspace...</div>
         </div>
       </div>
 
@@ -221,21 +221,21 @@
         <div class="flex items-center justify-between px-1 shrink-0">
           <div class="flex items-center gap-1.5 text-[11px] font-bold theme-accent uppercase tracking-wider">
             <i data-lucide="compass" class="w-3.5 h-3.5 pointer-events-none"></i>
-            <span>Arcos de Capacidade</span>
+            <span>Capability Arcs</span>
           </div>
           <div class="flex items-center gap-1">
-            <button onclick="openNewArcModal()" class="px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 shadow-sm btn-primary cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Criar Novo Arco Customizado">
+            <button onclick="openNewArcModal()" class="px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 shadow-sm btn-primary cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Create New Custom Arc">
               <i data-lucide="plus" class="w-3 h-3 pointer-events-none"></i>
-              <span>Novo Arco</span>
+              <span>New Arc</span>
             </button>
-            <button onclick="loadArcsData()" class="text-[10px] text-zinc-400 hover:text-white p-1 cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Atualizar Arcos">↻</button>
+            <button onclick="loadArcsData()" class="text-[10px] text-zinc-400 hover:text-white p-1 cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Refresh Arcs">↻</button>
           </div>
         </div>
 
         <!-- Capability Progress Header -->
         <div id="arcs-progress-summary" class="p-2.5 rounded-xl theme-card border shrink-0 space-y-1.5 shadow-sm">
           <div class="flex items-center justify-between text-xs font-mono">
-            <span class="text-zinc-400">Metas Verificadas</span>
+            <span class="text-zinc-400">Verified Goals</span>
             <span id="arcs-progress-pct" class="theme-accent font-bold">0%</span>
           </div>
           <div class="w-full h-1.5 bg-zinc-800/80 rounded-full overflow-hidden">
@@ -245,7 +245,7 @@
 
         <!-- Arcs List Container -->
         <div id="arcs-tracks-container" class="flex-1 min-h-0 overflow-y-auto space-y-2.5 text-xs pr-1">
-          <div class="text-zinc-500 p-2 text-xs">Carregando arcos de capacidade...</div>
+          <div class="text-zinc-500 p-2 text-xs">Loading capability arcs...</div>
         </div>
       </div>
 
@@ -463,16 +463,16 @@
         <div class="flex items-center gap-2">
           <i data-lucide="file-edit" class="w-4 h-4 theme-accent"></i>
           <span id="file-modal-title" class="font-code font-bold text-sm text-zinc-200">SPEC.md</span>
-          <span id="file-save-status" class="text-[10px] theme-accent font-mono hidden">Salvo ✓</span>
+          <span id="file-save-status" class="text-[10px] theme-accent font-mono hidden">Saved ✓</span>
         </div>
         <div class="flex items-center gap-2">
           <button onclick="saveCurrentFileContent()" class="px-3 py-1 btn-primary text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm cursor-pointer">
             <i data-lucide="save" class="w-3.5 h-3.5 pointer-events-none"></i>
-            <span>Salvar</span>
+            <span>Save</span>
           </button>
           <button onclick="injectCurrentFileInChat()" class="px-2.5 py-1 btn-secondary text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer">
             <i data-lucide="message-square" class="w-3 h-3 pointer-events-none"></i>
-            <span>Discutir no Chat</span>
+            <span>Discuss in Chat</span>
           </button>
           <button onclick="deleteCurrentFile()" class="px-2.5 py-1 bg-red-950/50 hover:bg-red-900 text-red-300 border border-red-800 text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer">
             <i data-lucide="trash-2" class="w-3 h-3 pointer-events-none"></i>
@@ -1161,9 +1161,9 @@
       <!-- Footer Button -->
       <div class="flex items-center justify-between pt-3 border-t theme-border shrink-0">
         <div class="text-[11px] text-zinc-500 font-mono">
-          Tema selecionado salva automaticamente
+          Selected theme saves automatically
         </div>
-        <button onclick="closeSettingsModal()" class="px-4 py-2 btn-primary text-xs font-bold rounded-xl shadow transition-all cursor-pointer">Fechar</button>
+        <button onclick="closeSettingsModal()" class="px-4 py-2 btn-primary text-xs font-bold rounded-xl shadow transition-all cursor-pointer">Close</button>
       </div>
 
     </div>

@@ -134,10 +134,10 @@ export async function executePendingDelete() {
     closeFileModal();
     loadWorkspaceData();
   } catch (err) {
-    alert(`Erro ao excluir: ${err.message}`);
+    alert(`Error deleting: ${err.message}`);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `<i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i><span>Excluir</span>`;
+    btn.innerHTML = `<i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i><span>Delete</span>`;
     lucide.createIcons();
   }
 }
