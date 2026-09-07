@@ -28,7 +28,7 @@
       const settingsVal = document.getElementById('settings-font-val');
       if (settingsVal) settingsVal.textContent = `${currentFontSize}px`;
       localStorage.setItem('tutor_font_size', currentFontSize.toString());
-      
+
       // Update active state on modal buttons
       [14, 16, 18, 20, 22].forEach(sz => {
         const btn = document.getElementById(`font-btn-${sz}`);
@@ -195,7 +195,6 @@
           --code-border: ${tone.borderMain};
         }
       `;
-      if (typeof updateNvimTheme === 'function') updateNvimTheme();
     }
 
     function setSkin(skinName) {
@@ -227,7 +226,6 @@
 
       renderThemeSettingsUI();
       loadThreadsList();
-      if (typeof updateNvimTheme === 'function') updateNvimTheme();
       lucide.createIcons();
     }
 
@@ -397,11 +395,14 @@
     }
 
     // 3.5 Agent Switcher Handler
+    // Switching the active agent starts a fresh session scoped to it, rather
+    // than mixing a different agent identity into an existing thread's history.
     function onAgentChanged() {
       const select = document.getElementById('agent-selector');
       if (!select) return;
       const agentId = select.value;
-      console.log(`[Tutor OS] Active agent set to: ${agentId}`);
+      updateConductorBadge(AGENT_IDLE_LABEL[agentId] || AGENT_IDLE_LABEL.tutor, false);
+      createNewThread(agentId);
     }
 
     // 3.6 A2A Delegation Transparency & Conductor Indicator
@@ -418,8 +419,13 @@
       }
     }
 
-    function getAgentDelegationInfo(toolName) {
-      const norm = (toolName || "").toLowerCase().replace(/[-_]/g, '');
+    function getAgentDelegationInfo(toolName, skillId) {
+      // Skills (challenger/teacher/reviewer/...) are always invoked through a
+      // single framework tool called "load_capability" — the real skill name
+      // only exists in its `id` argument (passed here as `skillId`), never in
+      // `toolName`. Without this, every Skill call falls through to the
+      // generic "System / Workspace Tool Execution" branch below.
+      const norm = (skillId || toolName || "").toLowerCase().replace(/[-_]/g, '');
       if (norm.includes('assigner') || norm.includes('assignment')) {
         return {
           isDelegation: true,
@@ -460,6 +466,36 @@
           headerText: '🧭 Tutor ➔ 💡 Teacher (Explaining JIT...)',
         };
       }
+      if (norm.includes('planner')) {
+        return {
+          isDelegation: true,
+          agentName: 'Planner',
+          role: 'Phase & Curriculum Planning',
+          color: 'blue',
+          iconEmoji: '🗺️',
+          headerText: '🧭 Tutor ➔ 🗺️ Planner (Planning Phase...)',
+        };
+      }
+      if (norm.includes('scaffolder')) {
+        return {
+          isDelegation: true,
+          agentName: 'Scaffolder',
+          role: 'Tracer-Bullet Scaffolding',
+          color: 'teal',
+          iconEmoji: '🏗️',
+          headerText: '🧭 Tutor ➔ 🏗️ Scaffolder (Scaffolding...)',
+        };
+      }
+      if (norm.includes('breaker')) {
+        return {
+          isDelegation: true,
+          agentName: 'Breaker',
+          role: 'Edge-Case & Failure-Mode Breaker',
+          color: 'red',
+          iconEmoji: '💥',
+          headerText: '🧭 Tutor ➔ 💥 Breaker (Breaking Edges...)',
+        };
+      }
       if (norm.includes('researcher') || norm.includes('arxiv')) {
         return {
           isDelegation: true,
@@ -490,14 +526,61 @@
           headerText: '🧭 Tutor (Verifying Evidence...)',
         };
       }
+      const displayName = skillId || toolName;
       return {
         isDelegation: false,
-        agentName: `${toolName}()`,
+        agentName: `${displayName}()`,
         role: 'System / Workspace Tool Execution',
         color: 'zinc',
         iconEmoji: '⚙️',
-        headerText: `🧭 Tutor (${toolName}...)`,
+        headerText: `🧭 Tutor (${displayName}...)`,
       };
+    }
+
+    // Renders one persisted (already-completed) A2A/Skill/tool call as a card,
+    // in the same shape as the live "tool-result" step built in sendChatMessage.
+    // Used to replay delegation/skill-call transparency after a page reload,
+    // since tool-call/tool-result SSE frames only used to exist in the live DOM.
+    function buildToolEventCardHTML(ev) {
+      const toolName = ev.toolName || "tool";
+      const info = getAgentDelegationInfo(toolName, ev.skillId);
+      const isError = Boolean(ev.isError);
+      const args = ev.args || {};
+      return `
+        <div class="p-3 rounded-2xl theme-card border ${isError ? 'border-red-500/50 bg-red-950/30 text-red-300' : 'theme-border'} text-xs transition-all shadow-md space-y-2 my-2">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 font-bold min-w-0">
+              <span class="text-xs inline-flex items-center justify-center shrink-0 select-none">${isError ? '⚠️' : info.iconEmoji}</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-xs ${isError ? 'text-red-300' : 'theme-accent'}">${info.isDelegation ? 'A2A:' : 'Executed:'} <b>${escapeHtml(info.agentName)}</b></span>
+                <span class="text-[10px] font-normal hidden sm:inline" style="color: var(--text-muted);">(${escapeHtml(info.role)})</span>
+              </div>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded-full border flex items-center gap-1 font-mono shrink-0" style="${isError ? 'color: #f87171; background-color: rgba(239, 68, 68, 0.15); border-color: #ef4444;' : 'background-color: var(--accent-subtle); color: var(--accent); border-color: var(--accent);'}">
+              <i data-lucide="${isError ? 'alert-triangle' : 'check'}" class="w-3 h-3"></i>
+              <span>${isError ? 'Failed' : 'Completed'}</span>
+            </span>
+          </div>
+          <details class="text-[10px] font-code pt-1 border-t theme-border">
+            <summary class="cursor-pointer hover:text-[var(--text-main)] select-none flex items-center justify-between" style="color: var(--text-muted);">
+              <span>Inspect output &amp; payload for <b>${escapeHtml(toolName)}</b></span>
+              <span class="text-[9px] font-mono" style="color: var(--text-dim);">[expand]</span>
+            </summary>
+            <div class="mt-2 space-y-2">
+              ${Object.keys(args).length > 0 ? `
+                <div>
+                  <span class="font-sans font-bold" style="color: var(--text-dim);">Input:</span>
+                  <pre class="mt-0.5 p-2 rounded overflow-x-auto border font-code text-xs" style="background-color: var(--code-bg); border-color: var(--code-border); color: var(--text-muted);">${escapeHtml(JSON.stringify(args, null, 2))}</pre>
+                </div>
+              ` : ''}
+              <div>
+                <span class="font-sans font-bold" style="color: var(--text-dim);">Output:</span>
+                <pre class="mt-0.5 p-2 rounded overflow-x-auto border font-code text-xs" style="background-color: var(--code-bg); border-color: var(--code-border); color: ${isError ? '#fca5a5' : 'var(--text-main)'};">${escapeHtml(typeof ev.result === 'object' ? JSON.stringify(ev.result, null, 2) : String(ev.result))}</pre>
+              </div>
+            </div>
+          </details>
+        </div>
+      `;
     }
 
     // 4. Sidebar Tabs Switching
@@ -590,17 +673,35 @@
     let nowCardCollapsed = false;
 
     // Agent color/label map
+    // Mirrors the backend's AGENTS dict (server.py) exactly — every id it can
+    // ever tag a thread/message with, whether reachable from the selector
+    // dropdown directly (tutor/pair/architect) or only via A2A/Skills.
     const AGENT_META = {
       tutor:      { label: 'Tutor',      color: 'emerald' },
       pair:       { label: 'Pair',       color: 'sky'     },
       architect:  { label: 'Architect',  color: 'violet'  },
+      assigner:   { label: 'Assigner',   color: 'lime'    },
       researcher: { label: 'Research',   color: 'amber'   },
+      challenger: { label: 'Challenger', color: 'rose'    },
+      reviewer:   { label: 'Reviewer',   color: 'orange'  },
+      teacher:    { label: 'Teacher',    color: 'yellow'  },
       planner:    { label: 'Planner',    color: 'blue'    },
       scaffolder: { label: 'Scaffold',   color: 'teal'    },
       breaker:    { label: 'Breaker',    color: 'red'     },
-      reviewer:   { label: 'Reviewer',   color: 'orange'  },
-      harvester:  { label: 'Harvest',    color: 'purple'  },
     };
+
+    // Idle (non-delegating) conductor badge label per directly-selectable agent.
+    const AGENT_IDLE_LABEL = {
+      tutor: '🧭 Tutor (Senior Navigator)',
+      pair: '🤝 Pair (Programming Partner)',
+      architect: '🏛️ Architect (Project & Career Strategist)',
+    };
+
+    function currentIdleConductorLabel() {
+      const select = document.getElementById('agent-selector');
+      const agentId = select ? select.value : 'tutor';
+      return AGENT_IDLE_LABEL[agentId] || AGENT_IDLE_LABEL.tutor;
+    }
 
     function agentBadgeClasses(agentId, small = false) {
       const meta = AGENT_META[agentId] || { label: agentId, color: 'zinc' };
@@ -917,6 +1018,18 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const messages = data.messages || [];
+        const threadAgentId = data.agentId || 'tutor';
+        const agentSelect = document.getElementById('agent-selector');
+        if (agentSelect && AGENT_IDLE_LABEL[threadAgentId]) {
+          agentSelect.value = threadAgentId;
+          updateConductorBadge(AGENT_IDLE_LABEL[threadAgentId], false);
+        }
+        const agentLabel = (AGENT_META[threadAgentId]?.label || 'Tutor').toUpperCase();
+        const toolEventsByMessageId = {};
+        (data.toolEvents || []).forEach(ev => {
+          if (!ev.messageId) return;
+          (toolEventsByMessageId[ev.messageId] = toolEventsByMessageId[ev.messageId] || []).push(ev);
+        });
 
         if (countEl) countEl.textContent = `• ${messages.length} ${messages.length === 1 ? 'msg' : 'msgs'}`;
 
@@ -951,6 +1064,8 @@
             messagesContainer.appendChild(buildUserMessageBlock(m.id || '', m.text || ''));
           } else {
             const bubbleId = `hist-bubble-${m.id || Math.random().toString(36).slice(2, 7)}`;
+            const toolEvents = (m.id && toolEventsByMessageId[m.id]) || [];
+            const stepsHtml = toolEvents.map(buildToolEventCardHTML).join('');
             const assistantBlock = document.createElement('div');
             assistantBlock.className = "flex items-start gap-3.5";
             assistantBlock.innerHTML = `
@@ -959,9 +1074,10 @@
               </div>
               <div class="flex-1 space-y-2 max-w-2xl">
                 <div class="font-semibold text-sm text-zinc-200 flex items-center gap-2">
-                  <span>TUTOR</span>
+                  <span>${escapeHtml(agentLabel)}</span>
                   <span class="text-xs text-zinc-500 font-normal">deepseek-v4-flash</span>
                 </div>
+                ${stepsHtml ? `<div class="space-y-1.5">${stepsHtml}</div>` : ''}
                 <div id="${bubbleId}" class="text-base text-zinc-300 leading-relaxed prose-chat font-sans">
                   ${renderMarkdown(m.text || '')}
                 </div>
@@ -990,15 +1106,17 @@
       }
     }
 
-    async function createNewThread() {
+    async function createNewThread(agentId) {
       const threadId = `thread-${Date.now()}`;
+      const label = AGENT_META[agentId]?.label;
       try {
         const res = await fetch(`${API_BASE}/api/thread/create`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             threadId,
-            title: "New Session"
+            title: label ? `New ${label} Session` : "New Session",
+            agentId: agentId || undefined,
           })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1291,7 +1409,7 @@
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          
+
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
 
@@ -1305,7 +1423,7 @@
                 // 1. Live Text Token Stream
                 if (data.type === "text" && data.text) {
                   accumulatedText += data.text;
-                  
+
                   let renderText = accumulatedText;
                   const thinkMatch = renderText.match(/<think>([\s\S]*?)(?:<\/think>|$)/);
                   if (thinkMatch) {
@@ -1328,7 +1446,8 @@
                 else if (data.type === "tool-call") {
                   const toolName = data.toolName || "tool";
                   const toolCallId = data.toolCallId || `tc-${Date.now()}`;
-                  const info = getAgentDelegationInfo(toolName);
+                  const skillId = data.skillId || null;
+                  const info = getAgentDelegationInfo(toolName, skillId);
                   updateConductorBadge(info.headerText, true);
 
                   const stepDiv = document.createElement('div');
@@ -1355,8 +1474,8 @@
                     ` : ''}
                   `;
                   stepsBox.appendChild(stepDiv);
-                  pendingToolSteps.set(toolCallId, { stepDiv, toolName, args: data.args, info });
-                  pendingToolSteps.set(toolName, { stepDiv, toolName, args: data.args, info });
+                  pendingToolSteps.set(toolCallId, { stepDiv, toolName, skillId, args: data.args, info });
+                  pendingToolSteps.set(toolName, { stepDiv, toolName, skillId, args: data.args, info });
                   lucide.createIcons();
                   autoScroll();
                 }
@@ -1368,9 +1487,9 @@
                   const pending = (toolCallId && pendingToolSteps.get(toolCallId)) || pendingToolSteps.get(toolName);
                   const targetDiv = pending ? pending.stepDiv : document.createElement('div');
                   const args = (pending && pending.args) ? pending.args : {};
-                  const info = (pending && pending.info) || getAgentDelegationInfo(toolName);
+                  const info = (pending && pending.info) || getAgentDelegationInfo(toolName, pending && pending.skillId);
                   const isError = Boolean(data.isError);
-                  updateConductorBadge("🧭 Tutor (Senior Navigator)", false);
+                  updateConductorBadge(currentIdleConductorLabel(), false);
 
                   targetDiv.className = "my-2";
                   targetDiv.innerHTML = `
@@ -1426,8 +1545,8 @@
                   const pending = (toolCallId && pendingToolSteps.get(toolCallId)) || pendingToolSteps.get(toolName);
                   const targetDiv = pending ? pending.stepDiv : document.createElement('div');
                   const args = (pending && pending.args) ? pending.args : {};
-                  const info = (pending && pending.info) || getAgentDelegationInfo(toolName);
-                  updateConductorBadge("🧭 Tutor (Senior Navigator)", false);
+                  const info = (pending && pending.info) || getAgentDelegationInfo(toolName, pending && pending.skillId);
+                  updateConductorBadge(currentIdleConductorLabel(), false);
 
                   targetDiv.className = "my-2";
                   targetDiv.innerHTML = `
@@ -1574,7 +1693,7 @@
           }
         }
         pendingToolSteps.clear();
-        updateConductorBadge("🧭 Tutor (Senior Navigator)", false);
+        updateConductorBadge(currentIdleConductorLabel(), false);
 
         document.getElementById('send-btn').classList.remove('hidden');
         document.getElementById('stop-btn').classList.remove('opacity-50', 'pointer-events-none');
@@ -1650,7 +1769,7 @@
         wrapper.className = "rounded-xl border theme-border overflow-hidden my-3 shadow-sm";
         wrapper.style.backgroundColor = "var(--code-bg)";
         wrapper.style.borderColor = "var(--code-border)";
-        
+
         const header = document.createElement('div');
         header.className = "h-8 px-3.5 border-b theme-border flex items-center justify-between text-xs font-mono";
         header.style.backgroundColor = "var(--bg-card)";
@@ -1803,7 +1922,7 @@
         const res = await fetch(`${API_BASE}/api/workspace`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        
+
         // Render NOW.md quick preview (rendered markdown, not raw text)
         const nowCard = document.getElementById('quick-now-card');
         nowCard.innerHTML = renderMarkdown(data.now && data.now.trim() ? data.now : "*No active mission right now.*");
@@ -1812,7 +1931,7 @@
         const treeContainer = document.getElementById('workspace-tree');
         const projects = data.projects || [];
         const archivedProjects = data.archivedProjects || [];
-        
+
         treeContainer.innerHTML = `
           <!-- Root OS Files -->
           <div class="space-y-1 mb-2">
@@ -1952,7 +2071,7 @@
       const title = document.getElementById('file-modal-title');
       const editor = document.getElementById('file-modal-editor');
       const saveStatus = document.getElementById('file-save-status');
-      
+
       saveStatus.classList.add('hidden');
       title.textContent = slug ? `${isArchived ? '[Arquivado] ' : ''}${slug} / ${filePath}` : filePath;
       editor.value = "Carregando...";
@@ -1966,7 +2085,7 @@
 
         const res = await fetch(`${API_BASE}/api/workspace/file?${params.toString()}`);
         const data = await res.json();
-        
+
         currentPreviewFile = { slug, path: filePath, content: data.content || "", isArchived };
         editor.value = data.content || "";
         editor.focus();
@@ -2027,7 +2146,7 @@
       document.getElementById('delete-modal-subdesc').textContent = isArchived
         ? "All files in the archived folder will be permanently deleted."
         : "You can archive it as completed (preserving history) or delete it permanently.";
-      
+
       const archiveBtn = document.getElementById('delete-archive-option-btn');
       if (isArchived) {
         archiveBtn.classList.add('hidden');
@@ -2287,523 +2406,6 @@
     }
 
     function closeFileModal() { document.getElementById('file-modal').classList.add('hidden'); }
-
-    // =========================================================================
-    // =========================================================================
-    // 13. EMBEDDED REAL NEOVIM TERMINAL (xterm.js + Tauri PTY + Dynamic Zoom)
-    // =========================================================================
-    let nvimTerminal = null;
-    let nvimFitAddon = null;
-    let isNvimOpen = false;
-    let isNvimFullscreen = false;
-    let currentNvimWidthPct = 55;
-    let currentNvimFontSize = parseInt(localStorage.getItem('tutor_nvim_font_size') || '17');
-    let tauriUnlistenPty = null;
-
-    function getXtermTheme(skinName) {
-      const activeSkin = skinName || localStorage.getItem('tutor_skin') || 'classic';
-      
-      if (activeSkin === 'matrix') {
-        return {
-          background: '#020703',
-          foreground: '#f0fdf4',
-          cursor: '#00ff66',
-          cursorAccent: '#020703',
-          selectionBackground: 'rgba(0, 255, 102, 0.3)',
-          black: '#020703',
-          red: '#ef4444',
-          green: '#00ff66',
-          yellow: '#eab308',
-          blue: '#3b82f6',
-          magenta: '#a855f7',
-          cyan: '#06b6d4',
-          white: '#f0fdf4',
-          brightBlack: '#14451e',
-          brightRed: '#f87171',
-          brightGreen: '#4ade80',
-          brightYellow: '#fde047',
-          brightBlue: '#60a5fa',
-          brightMagenta: '#c084fc',
-          brightCyan: '#22d3ee',
-          brightWhite: '#ffffff',
-        };
-      }
-      
-      if (activeSkin === 'amber') {
-        return {
-          background: '#0c0803',
-          foreground: '#fff8f0',
-          cursor: '#ff9d00',
-          cursorAccent: '#0c0803',
-          selectionBackground: 'rgba(255, 157, 0, 0.3)',
-          black: '#0c0803',
-          red: '#f87171',
-          green: '#fbbf24',
-          yellow: '#ff9d00',
-          blue: '#f59e0b',
-          magenta: '#d97706',
-          cyan: '#fb923c',
-          white: '#fff8f0',
-          brightBlack: '#422912',
-          brightRed: '#ef4444',
-          brightGreen: '#fde68a',
-          brightYellow: '#ffaa00',
-          brightBlue: '#fdba74',
-          brightMagenta: '#f97316',
-          brightCyan: '#fed7aa',
-          brightWhite: '#ffffff',
-        };
-      }
-
-      if (activeSkin === 'nordic') {
-        return {
-          background: '#070d18',
-          foreground: '#f0f6fc',
-          cursor: '#00d2ff',
-          cursorAccent: '#070d18',
-          selectionBackground: 'rgba(0, 210, 255, 0.25)',
-          black: '#070d18',
-          red: '#f43f5e',
-          green: '#10b981',
-          yellow: '#f59e0b',
-          blue: '#00d2ff',
-          magenta: '#818cf8',
-          cyan: '#38bdf8',
-          white: '#f0f6fc',
-          brightBlack: '#1f3860',
-          brightRed: '#fb7185',
-          brightGreen: '#34d399',
-          brightYellow: '#fbbf24',
-          brightBlue: '#38bdf8',
-          brightMagenta: '#a5b4fc',
-          brightCyan: '#7dd3fc',
-          brightWhite: '#ffffff',
-        };
-      }
-
-      if (activeSkin === 'synthwave') {
-        return {
-          background: '#0d0818',
-          foreground: '#faf5ff',
-          cursor: '#ff2a85',
-          cursorAccent: '#0d0818',
-          selectionBackground: 'rgba(255, 42, 133, 0.3)',
-          black: '#0d0818',
-          red: '#ff2a85',
-          green: '#22c55e',
-          yellow: '#facc15',
-          blue: '#c084fc',
-          magenta: '#f472b6',
-          cyan: '#38bdf8',
-          white: '#faf5ff',
-          brightBlack: '#3e226d',
-          brightRed: '#fb7185',
-          brightGreen: '#4ade80',
-          brightYellow: '#fef08a',
-          brightBlue: '#e879f9',
-          brightMagenta: '#ff2a85',
-          brightCyan: '#67e8f9',
-          brightWhite: '#ffffff',
-        };
-      }
-
-      if (activeSkin === 'dracula') {
-        return {
-          background: '#1e1f29',
-          foreground: '#f8f8f2',
-          cursor: '#bd93f9',
-          cursorAccent: '#1e1f29',
-          selectionBackground: 'rgba(189, 147, 249, 0.3)',
-          black: '#21222c',
-          red: '#ff5555',
-          green: '#50fa7b',
-          yellow: '#f1fa8c',
-          blue: '#bd93f9',
-          magenta: '#ff79c6',
-          cyan: '#8be9fd',
-          white: '#f8f8f2',
-          brightBlack: '#6272a4',
-          brightRed: '#ff6e6e',
-          brightGreen: '#69ff94',
-          brightYellow: '#ffffa5',
-          brightBlue: '#d6acff',
-          brightMagenta: '#ff92df',
-          brightCyan: '#a4ffff',
-          brightWhite: '#ffffff',
-        };
-      }
-
-      if (activeSkin === 'gruvbox') {
-        return {
-          background: '#1d2021',
-          foreground: '#ebdbb2',
-          cursor: '#fe8019',
-          cursorAccent: '#1d2021',
-          selectionBackground: 'rgba(254, 128, 25, 0.3)',
-          black: '#282828',
-          red: '#cc241d',
-          green: '#98971a',
-          yellow: '#d79921',
-          blue: '#458588',
-          magenta: '#b16286',
-          cyan: '#689d6a',
-          white: '#a89984',
-          brightBlack: '#928374',
-          brightRed: '#fb4934',
-          brightGreen: '#b8bb26',
-          brightYellow: '#fabd2f',
-          brightBlue: '#83a598',
-          brightMagenta: '#d3869b',
-          brightCyan: '#8ec07c',
-          brightWhite: '#ebdbb2',
-        };
-      }
-
-      if (activeSkin === 'aqua') {
-        return {
-          background: '#ffffff',
-          foreground: '#0f172a',
-          cursor: '#0284c7',
-          cursorAccent: '#ffffff',
-          selectionBackground: 'rgba(2, 132, 199, 0.25)',
-          black: '#0f172a',
-          red: '#dc2626',
-          green: '#16a34a',
-          yellow: '#ca8a04',
-          blue: '#0284c7',
-          magenta: '#9333ea',
-          cyan: '#0891b2',
-          white: '#f8fafc',
-          brightBlack: '#64748b',
-          brightRed: '#ef4444',
-          brightGreen: '#22c55e',
-          brightYellow: '#eab308',
-          brightBlue: '#38bdf8',
-          brightMagenta: '#a855f7',
-          brightCyan: '#06b6d4',
-          brightWhite: '#0f172a',
-        };
-      }
-
-      if (activeSkin === 'custom') {
-        const isCustomLight = customThemeState.baseTone === 'studio_light';
-        const tonePresets = {
-          obsidian:    { bgApp: '#0b0e14', textMain: '#f3f4f6', borderMain: '#232d40' },
-          pitch_black: { bgApp: '#020703', textMain: '#f0fdf4', borderMain: '#14451e' },
-          arctic_navy: { bgApp: '#070d18', textMain: '#f0f6fc', borderMain: '#1f3860' },
-          synth_violet:{ bgApp: '#0d0818', textMain: '#faf5ff', borderMain: '#3e226d' },
-          warm_earth:  { bgApp: '#1d2021', textMain: '#ebdbb2', borderMain: '#504945' },
-          studio_light:{ bgApp: '#ffffff', textMain: '#0f172a', borderMain: '#cbd5e1' }
-        };
-        const curTone = tonePresets[customThemeState.baseTone] || tonePresets.obsidian;
-        const curAcc = customThemeState.accent || '#10b981';
-        return {
-          background: curTone.bgApp,
-          foreground: curTone.textMain,
-          cursor: curAcc,
-          cursorAccent: curTone.bgApp,
-          selectionBackground: isCustomLight ? 'rgba(2, 132, 199, 0.25)' : 'rgba(255, 255, 255, 0.15)',
-          black: isCustomLight ? '#0f172a' : curTone.bgApp,
-          red: '#ef4444',
-          green: curAcc,
-          yellow: '#eab308',
-          blue: '#3b82f6',
-          magenta: '#a855f7',
-          cyan: '#06b6d4',
-          white: curTone.textMain,
-          brightBlack: curTone.borderMain,
-          brightRed: '#f87171',
-          brightGreen: '#4ade80',
-          brightYellow: '#fde047',
-          brightBlue: '#60a5fa',
-          brightMagenta: '#c084fc',
-          brightCyan: '#22d3ee',
-          brightWhite: '#ffffff',
-        };
-      }
-
-      // Default: Classic
-      return {
-        background: '#0b0e14',
-        foreground: '#f3f4f6',
-        cursor: '#10b981',
-        cursorAccent: '#0b0e14',
-        selectionBackground: 'rgba(16, 185, 129, 0.28)',
-        black: '#0b0e14',
-        red: '#ef4444',
-        green: '#10b981',
-        yellow: '#f59e0b',
-        blue: '#3b82f6',
-        magenta: '#8b5cf6',
-        cyan: '#06b6d4',
-        white: '#f3f4f6',
-        brightBlack: '#232d40',
-        brightRed: '#f87171',
-        brightGreen: '#34d399',
-        brightYellow: '#fbbf24',
-        brightBlue: '#60a5fa',
-        brightMagenta: '#a78bfa',
-        brightCyan: '#22d3ee',
-        brightWhite: '#ffffff',
-      };
-    }
-
-    function updateNvimTheme() {
-      if (nvimTerminal) {
-        const theme = getXtermTheme();
-        nvimTerminal.options.theme = theme;
-      }
-    }
-
-    function updateNvimFontUI() {
-      const badge = document.getElementById('nvim-font-size-badge');
-      if (badge) badge.textContent = `${currentNvimFontSize}px`;
-
-      const settingsVal = document.getElementById('settings-nvim-font-val');
-      if (settingsVal) settingsVal.textContent = `${currentNvimFontSize}px`;
-
-      [14, 16, 17, 18, 20, 22].forEach(sz => {
-        const btn = document.getElementById(`nvim-font-btn-${sz}`);
-        if (btn) {
-          if (sz === currentNvimFontSize) {
-            btn.className = "p-2 rounded-lg font-bold shadow-sm border cursor-pointer border-emerald-400 bg-emerald-500/20 text-emerald-300";
-          } else {
-            btn.className = "p-2 rounded-lg bg-zinc-900 border theme-border hover:border-emerald-400 font-medium transition-all text-zinc-300 cursor-pointer";
-          }
-        }
-      });
-    }
-
-    function setNvimFontSize(size) {
-      currentNvimFontSize = Math.max(10, Math.min(36, size));
-      localStorage.setItem('tutor_nvim_font_size', currentNvimFontSize.toString());
-      if (nvimTerminal) {
-        nvimTerminal.options.fontSize = currentNvimFontSize;
-        if (nvimFitAddon) {
-          nvimFitAddon.fit();
-          const tauriBridge = window.__TAURI__;
-          const tauriInvoke = tauriBridge?.core?.invoke || tauriBridge?.invoke;
-          if (tauriInvoke && nvimTerminal) {
-            tauriInvoke('resize_pty', {
-              rows: nvimTerminal.rows,
-              cols: nvimTerminal.cols,
-            }).catch(() => {});
-          }
-        }
-      }
-      updateNvimFontUI();
-    }
-
-    function changeNvimFontSize(delta) {
-      setNvimFontSize(currentNvimFontSize + delta);
-    }
-
-    function resetNvimFontSize() {
-      setNvimFontSize(17);
-    }
-
-    function cycleNeovimWidth() {
-      const pane = document.getElementById('neovim-pane');
-      const chatPane = document.getElementById('chat-pane');
-      const widthLabel = document.getElementById('nvim-width-label');
-      if (!pane || !chatPane) return;
-
-      if (isNvimFullscreen) {
-        isNvimFullscreen = false;
-        chatPane.classList.remove('hidden');
-      }
-
-      if (currentNvimWidthPct === 55) {
-        currentNvimWidthPct = 75;
-      } else if (currentNvimWidthPct === 75) {
-        currentNvimWidthPct = 90;
-      } else if (currentNvimWidthPct === 90) {
-        currentNvimWidthPct = 40;
-      } else {
-        currentNvimWidthPct = 55;
-      }
-
-      pane.style.width = `${currentNvimWidthPct}%`;
-      if (widthLabel) widthLabel.textContent = `${currentNvimWidthPct}%`;
-
-      setTimeout(() => {
-        if (nvimFitAddon) nvimFitAddon.fit();
-        if (nvimTerminal) {
-          nvimTerminal.focus();
-          const tauriBridge = window.__TAURI__;
-          const tauriInvoke = tauriBridge?.core?.invoke || tauriBridge?.invoke;
-          if (tauriInvoke) {
-            tauriInvoke('resize_pty', {
-              rows: nvimTerminal.rows,
-              cols: nvimTerminal.cols,
-            }).catch(() => {});
-          }
-        }
-      }, 50);
-    }
-
-    async function toggleNeovimSplit() {
-      const pane = document.getElementById('neovim-pane');
-      const btn = document.getElementById('btn-split-editor');
-      if (!pane) return;
-
-      isNvimOpen = !isNvimOpen;
-      if (isNvimOpen) {
-        pane.classList.remove('hidden');
-        pane.classList.add('flex');
-        if (btn) btn.classList.add('tab-btn-active');
-        if (!nvimTerminal) {
-          initNeovimTerminal();
-        } else {
-          setTimeout(() => {
-            if (nvimFitAddon) nvimFitAddon.fit();
-            if (nvimTerminal) nvimTerminal.focus();
-          }, 80);
-        }
-      } else {
-        pane.classList.add('hidden');
-        pane.classList.remove('flex');
-        if (btn) btn.classList.remove('tab-btn-active');
-      }
-      lucide.createIcons();
-    }
-
-    function toggleNeovimFullscreen() {
-      const pane = document.getElementById('neovim-pane');
-      const chatPane = document.getElementById('chat-pane');
-      if (!pane || !chatPane) return;
-
-      isNvimFullscreen = !isNvimFullscreen;
-      if (isNvimFullscreen) {
-        pane.style.width = '100%';
-        chatPane.classList.add('hidden');
-      } else {
-        pane.style.width = `${currentNvimWidthPct}%`;
-        chatPane.classList.remove('hidden');
-      }
-      setTimeout(() => {
-        if (nvimFitAddon) nvimFitAddon.fit();
-        if (nvimTerminal) nvimTerminal.focus();
-      }, 100);
-    }
-
-    async function initNeovimTerminal() {
-      const container = document.getElementById('terminal-wrapper');
-      if (!container || !window.Terminal) return;
-
-      const activeSkin = localStorage.getItem('tutor_skin') || 'classic';
-      const xtermTheme = getXtermTheme(activeSkin);
-
-      nvimTerminal = new Terminal({
-        cursorBlink: true,
-        cursorStyle: 'block',
-        cursorWidth: 2,
-        fontSize: currentNvimFontSize,
-        fontFamily: "'Hack Nerd Font Mono', 'JetBrainsMono Nerd Font Mono', 'FiraCode Nerd Font Mono', 'MesloLGS NF', 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-        lineHeight: 1.28,
-        letterSpacing: 0,
-        fontWeight: '400',
-        fontWeightBold: '700',
-        drawBoldTextInColor: true,
-        theme: xtermTheme,
-        convertEol: true,
-        scrollback: 5000,
-        macOptionIsMeta: true,
-        allowTransparency: true,
-      });
-
-      nvimFitAddon = new FitAddon.FitAddon();
-      nvimTerminal.loadAddon(nvimFitAddon);
-      nvimTerminal.open(container);
-      nvimFitAddon.fit();
-      nvimTerminal.focus();
-      updateNvimFontUI();
-
-      // Mouse wheel zoom with Cmd / Ctrl key inside terminal
-      container.addEventListener('wheel', (e) => {
-        if (e.metaKey || e.ctrlKey) {
-          e.preventDefault();
-          if (e.deltaY < 0) {
-            changeNvimFontSize(1);
-          } else if (e.deltaY > 0) {
-            changeNvimFontSize(-1);
-          }
-        }
-      }, { passive: false });
-
-      const tauriBridge = window.__TAURI__;
-      const tauriInvoke = tauriBridge?.core?.invoke || tauriBridge?.invoke;
-      const tauriListen = tauriBridge?.event?.listen;
-
-      window.addEventListener('resize', () => {
-        if (isNvimOpen && nvimFitAddon) {
-          nvimFitAddon.fit();
-          if (tauriInvoke && nvimTerminal) {
-            tauriInvoke('resize_pty', {
-              rows: nvimTerminal.rows,
-              cols: nvimTerminal.cols,
-            }).catch(() => {});
-          }
-        }
-      });
-
-      if (tauriInvoke && tauriListen) {
-        try {
-          const badge = document.getElementById('neovim-status-badge');
-          if (badge) badge.textContent = 'Conectando...';
-
-          if (tauriUnlistenPty) tauriUnlistenPty();
-
-          tauriUnlistenPty = await tauriListen('pty-data', (event) => {
-            if (nvimTerminal && event.payload) {
-              nvimTerminal.write(event.payload);
-            }
-          });
-
-          await tauriInvoke('spawn_nvim', {
-            cwd: 'workspace',
-            rows: nvimTerminal.rows || 30,
-            cols: nvimTerminal.cols || 100,
-          });
-
-          if (badge) {
-            badge.textContent = 'Nativo PTY';
-            badge.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono theme-card theme-accent border theme-border';
-          }
-
-          nvimTerminal.onData((data) => {
-            tauriInvoke('write_pty', { data }).catch(() => {});
-          });
-
-          nvimTerminal.onResize(({ rows, cols }) => {
-            tauriInvoke('resize_pty', { rows, cols }).catch(() => {});
-          });
-        } catch (err) {
-          console.error("Erro ao iniciar Neovim PTY:", err);
-          nvimTerminal.writeln("\r\n\x1b[33m⚠️ Erro ao iniciar o Neovim PTY: " + err + "\x1b[0m");
-          nvimTerminal.writeln("\x1b[90mExecute `nvim workspace/` no terminal.\x1b[0m\r\n");
-        }
-      } else {
-        nvimTerminal.writeln("\x1b[32m⚡ [TUTOR OS EMBEDDED TERMINAL]\x1b[0m");
-        nvimTerminal.writeln("\x1b[90mExecute via Desktop Tauri (`npm run app`) para Neovim nativo com xterm.js.\x1b[0m\r\n");
-        nvimTerminal.writeln("\x1b[36mDica: Para o terminal nativo completo, use o app desktop Tauri.\x1b[0m\r\n");
-      }
-    }
-
-    async function restartNeovim() {
-      if (nvimTerminal) {
-        nvimTerminal.clear();
-        const tauriInvoke = window.__TAURI__?.core?.invoke || window.__TAURI__?.invoke;
-        if (tauriInvoke) {
-          await tauriInvoke('spawn_nvim', {
-            cwd: 'workspace',
-            rows: nvimTerminal.rows || 30,
-            cols: nvimTerminal.cols || 100,
-          }).catch(() => {});
-          nvimTerminal.focus();
-        }
-      }
-    }
 
     // =========================================================================
     // 14. DYNAMIC CAPABILITY ARCS & JUDGMENT ENGINE
@@ -4180,7 +3782,6 @@
       loadLearnerProfileConfig();
       renderThemeSettingsUI();
       applyFontSize(currentFontSize);
-      if (typeof updateNvimFontUI === 'function') updateNvimFontUI();
       lucide.createIcons();
     }
     function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
@@ -4231,46 +3832,21 @@
 
     // Global Keybindings
     window.addEventListener('keydown', (e) => {
-      // Zoom handling: if Shift is held or inside Neovim pane, adjust Neovim font size specifically
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === '=' || e.key === '+')) { 
-        e.preventDefault(); 
-        changeNvimFontSize(1); 
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === '_' || e.key === '-')) { 
-        e.preventDefault(); 
-        changeNvimFontSize(-1); 
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) { 
-        e.preventDefault(); 
-        if (isNvimOpen && (isNvimFullscreen || document.activeElement?.closest('#neovim-pane'))) {
-          changeNvimFontSize(1);
-        } else {
-          changeFontSize(1); 
-        }
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && (e.key === '-')) { 
-        e.preventDefault(); 
-        if (isNvimOpen && (isNvimFullscreen || document.activeElement?.closest('#neovim-pane'))) {
-          changeNvimFontSize(-1);
-        } else {
-          changeFontSize(-1); 
-        }
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === '0' && isNvimOpen) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
         e.preventDefault();
-        resetNvimFontSize();
+        changeFontSize(1);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === '-')) {
+        e.preventDefault();
+        changeFontSize(-1);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openSettingsModal(); }
       if ((e.metaKey || e.ctrlKey) && e.key === 'r') { e.preventDefault(); openRescueModal(); }
       if ((e.metaKey || e.ctrlKey) && e.key === 'i') { e.preventDefault(); openQuickInboxModal(); }
       if ((e.metaKey || e.ctrlKey) && e.key === 'b') { e.preventDefault(); toggleSidebar(); }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'n') { e.preventDefault(); createNewThread(); }
-      if ((e.metaKey || e.ctrlKey) && e.key === '\\') { e.preventDefault(); toggleNeovimSplit(); }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') { e.preventDefault(); createNewThread(document.getElementById('agent-selector')?.value); }
       if (e.key === 'Escape') {
         closeRescueModal();
         closeSettingsModal();
@@ -4355,8 +3931,8 @@
     }
 
     // Initialize Theme (must run after all let/const declarations above so
-    // setSkin's downstream calls into loadThreadsList/updateNvimTheme don't
-    // hit their variables in the temporal dead zone)
+    // setSkin's downstream call into loadThreadsList doesn't hit its
+    // variables in the temporal dead zone)
     loadSavedCustomTheme();
     const savedSkin = localStorage.getItem('tutor_skin') || 'classic';
     setSkin(savedSkin);

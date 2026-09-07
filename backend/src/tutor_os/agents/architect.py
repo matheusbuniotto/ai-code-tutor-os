@@ -1,4 +1,4 @@
-"""Port of src/mastra/agents/architect.ts."""
+"""Project Architect: plans competency milestones on a horizon of months."""
 
 from __future__ import annotations
 
@@ -68,10 +68,10 @@ TOOL_FUNCTIONS = [
     update_working_memory,
 ]
 
-architect_agent = Agent(
+agent = Agent(
     get_model(),
     name="architect",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
-architect_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)

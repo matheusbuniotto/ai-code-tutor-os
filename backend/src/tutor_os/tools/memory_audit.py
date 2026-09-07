@@ -1,25 +1,27 @@
-"""Port of src/mastra/tools/memory_audit.ts."""
+"""Auditable memory graph: L1 episodes → L2 evidence → L3 capability arcs.
+
+Every verified capability must trace back to a reproducible L2 fact; the audit
+health score is the share of verified capabilities that actually do.
+"""
 
 from __future__ import annotations
 
-import json
 import random
 import string
 from datetime import UTC, date, datetime
 from typing import Literal, TypedDict
 
-from tutor_os.storage import WORKSPACE_ROOT
-from tutor_os.tools.arcs import (
-    read_arcs_data,
-    save_arcs_data,
-)
-from tutor_os.tools.episodes import read_episodes
+from tutor_os.storage import META_DIR, read_json, write_json
+from tutor_os.tools.arcs import CapabilityItem, read_arcs_data, save_arcs_data
+from tutor_os.tools.episodes import Episode, read_episodes
 
-EVIDENCES_FILE = WORKSPACE_ROOT / "_meta" / "EVIDENCES.json"
-TRACES_DIR = WORKSPACE_ROOT / "_meta" / "traces"
+EVIDENCES_FILE = META_DIR / "EVIDENCES.json"
+TRACES_DIR = META_DIR / "traces"
 
 Surface = Literal["benchmark", "code_review", "architecture_note", "challenge", "rescue", "chat"]
 VerifiedBy = Literal["reviewer", "harvester", "system", "assigner"]
+
+_CLAIM_MATCH_PREFIX = 15
 
 
 class L2Evidence(TypedDict, total=False):
@@ -38,99 +40,66 @@ class L2Evidence(TypedDict, total=False):
     notes: str | None
 
 
-def _short_id(n: int = 4) -> str:
+def short_id(n: int = 4) -> str:
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
 
 
 def read_evidences() -> list[L2Evidence]:
-    try:
-        if not EVIDENCES_FILE.exists():
-            now = datetime.now(UTC).isoformat()
-            default_evidences: list[L2Evidence] = [
-                {
-                    "id": "ev-init-lock-contention",
-                    "sourceL1Id": "ep-init-01",
-                    "sourceRef": "workspace/eda-for-ai-rust/benchmarks/mutex_vs_rwlock.rs",
-                    "surface": "benchmark",
-                    "claim": "Under high write contention (32 threads), RwLock has 3.8x lower throughput than Mutex due to reader/writer cache-invalidation overhead.",
-                    "metric": "Throughput: 12.4k ops/s (Mutex) vs 3.2k ops/s (RwLock)",
-                    "reproductionCommand": "cargo bench --bench lock_contention",
-                    "arcId": "arc1_behavior",
-                    "capabilityId": "cap-lock-contention",
-                    "verifiedBy": "reviewer",
-                    "confidence": 1.0,
-                    "verifiedAt": now,
-                    "notes": "Audited with a latency profile and L3 cache counters.",
-                },
-                {
-                    "id": "ev-init-wal-saturation",
-                    "sourceL1Id": "ep-init-02",
-                    "sourceRef": "workspace/rust-wal-bench/src/wal.rs",
-                    "surface": "benchmark",
-                    "claim": "Sequential fsync per transaction saturates the drive at ~850 ops/s; Group Commit in batches of 64 raises it to 42,000 ops/s while keeping ACID durability.",
-                    "metric": "42,000 ops/s with p99 < 1.4ms (Group Commit 64)",
-                    "reproductionCommand": "cargo run --release -- --bench-wal",
-                    "arcId": "arc1_behavior",
-                    "capabilityId": "cap-wal-io-saturation",
-                    "verifiedBy": "reviewer",
-                    "confidence": 1.0,
-                    "verifiedAt": now,
-                    "notes": "Proven via physical amortization of NVMe disk flush time.",
-                },
-            ]
-            write_evidences(default_evidences)
-            return default_evidences
-        raw = json.loads(EVIDENCES_FILE.read_text(encoding="utf-8"))
-        return raw if isinstance(raw, list) else []
-    except Exception as err:
-        print(f"Error reading EVIDENCES.json: {err}")
-        return []
+    """Starts empty: seeding evidence would fabricate an audit trail nobody earned."""
+    stored = read_json(EVIDENCES_FILE, [])
+    return stored if isinstance(stored, list) else []
 
 
 def write_evidences(evidences: list[L2Evidence]) -> None:
-    WORKSPACE_ROOT.joinpath("_meta").mkdir(parents=True, exist_ok=True)
     TRACES_DIR.mkdir(parents=True, exist_ok=True)
-    EVIDENCES_FILE.write_text(json.dumps(evidences, indent=2, ensure_ascii=False), encoding="utf-8")
+    write_json(EVIDENCES_FILE, evidences)
+
+
+def _evidence_for(
+    arc_id: str, cap: CapabilityItem, evidences: list[L2Evidence]
+) -> list[L2Evidence]:
+    """Evidence explicitly tagged with the capability, plus same-arc claims that name it."""
+    title_prefix = cap["title"].lower()[:_CLAIM_MATCH_PREFIX]
+    return [
+        e
+        for e in evidences
+        if e.get("capabilityId") == cap["id"]
+        or (e.get("arcId") == arc_id and title_prefix in e.get("claim", "").lower())
+    ]
+
+
+def _episode_to_trace(index: int, ep: Episode) -> dict:
+    return {
+        "id": f"ep-{ep['date'].replace('-', '')}-{index + 1:02d}",
+        "index": index,
+        "type": "session",
+        "timestamp": ep["date"],
+        "projectSlug": ep.get("projectSlug"),
+        "topic": ep.get("topic"),
+        "summary": (
+            f"{ep.get('projectSlug', 'OS')}: {ep.get('topic', 'Session')} "
+            f"(Phase {ep.get('phaseReached', 1)}, {ep.get('status', 'em-andamento')}) "
+            f"— {ep.get('extracted', '')}"
+        ),
+        "source": "workspace/_meta/EPISODES.jsonl",
+        "rawRef": ep.get("extracted"),
+    }
 
 
 def get_full_memory_graph() -> dict:
-    arcs = read_arcs_data()
     evidences = read_evidences()
-    episodes = read_episodes()
+    l1_traces = [_episode_to_trace(i, ep) for i, ep in enumerate(read_episodes())]
 
-    l1_traces = []
-    for idx, ep in enumerate(episodes):
-        l1_traces.append({
-            "id": f"ep-{ep['date'].replace('-', '')}-{idx + 1:02d}",
-            "index": idx,
-            "type": "session",
-            "timestamp": ep["date"],
-            "projectSlug": ep.get("projectSlug"),
-            "topic": ep.get("topic"),
-            "summary": f"{ep.get('projectSlug', 'OS')}: {ep.get('topic', 'Session')} (Phase {ep.get('phaseReached', 1)}, {ep.get('status', 'em-andamento')}) — {ep.get('extracted', '')}",
-            "source": "workspace/_meta/EPISODES.jsonl",
-            "rawRef": ep.get("extracted"),
-        })
-
-    total_verified_caps = 0
+    verified_caps = 0
     caps_with_evidence = 0
     l3_arcs = []
-    for arc in arcs:
+    for arc in read_arcs_data():
         cap_rows = []
         for cap in arc.get("capabilities", []):
-            matched = [
-                e
-                for e in evidences
-                if e.get("capabilityId") == cap["id"]
-                or (
-                    e.get("arcId") == arc["id"]
-                    and cap["title"].lower()[:15] in e.get("claim", "").lower()
-                )
-            ]
+            matched = _evidence_for(arc["id"], cap, evidences)
             if cap.get("verified"):
-                total_verified_caps += 1
-                if matched:
-                    caps_with_evidence += 1
+                verified_caps += 1
+                caps_with_evidence += bool(matched)
             cap_rows.append({
                 "id": cap["id"],
                 "title": cap["title"],
@@ -145,10 +114,6 @@ def get_full_memory_graph() -> dict:
             "capabilities": cap_rows,
         })
 
-    audit_health_score = (
-        round((caps_with_evidence / total_verified_caps) * 100) if total_verified_caps > 0 else 100
-    )
-
     return {
         "l3": {
             "profileSummary": "User Profile — Auditable Technical Judgment Profile",
@@ -159,10 +124,26 @@ def get_full_memory_graph() -> dict:
         "stats": {
             "totalL1Traces": len(l1_traces),
             "totalL2Evidences": len(evidences),
-            "verifiedCapabilities": total_verified_caps,
-            "auditHealthScore": audit_health_score,
+            "verifiedCapabilities": verified_caps,
+            "auditHealthScore": (
+                round(caps_with_evidence / verified_caps * 100) if verified_caps else 100
+            ),
         },
     }
+
+
+def link_capability(capability_id: str, claim: str, evidence_id: str) -> None:
+    """Marks the capability verified in ARCS.json and points it at the new evidence."""
+    arcs = read_arcs_data()
+    for arc in arcs:
+        cap = next((c for c in arc["capabilities"] if c["id"] == capability_id), None)
+        if cap:
+            cap["verified"] = True
+            cap["evidence"] = claim
+            cap["evidenceIds"] = sorted(set(cap.get("evidenceIds") or []) | {evidence_id})
+            cap["verifiedAt"] = datetime.now(UTC).isoformat()
+            save_arcs_data(arcs)
+            return
 
 
 def evidence_record(
@@ -193,11 +174,12 @@ def evidence_record(
         confidence: Confidence (0-1).
         notes: Additional notes.
     """
-    evidences = read_evidences()
-    ev_id = f"ev-{date.today().isoformat().replace('-', '')}-{_short_id()}"
-    source_l1_id = source_l1_id or f"ep-{date.today().isoformat().replace('-', '')}-01"
+    today = date.today().isoformat().replace("-", "")
+    ev_id = f"ev-{today}-{short_id()}"
+    source_l1_id = source_l1_id or f"ep-{today}-01"
 
-    new_evidence: L2Evidence = {
+    evidences = read_evidences()
+    evidences.append({
         "id": ev_id,
         "claim": claim,
         "metric": metric,
@@ -211,25 +193,11 @@ def evidence_record(
         "confidence": confidence,
         "verifiedAt": datetime.now(UTC).isoformat(),
         "notes": notes,
-    }
-
-    evidences.append(new_evidence)
+    })
     write_evidences(evidences)
 
     if capability_id:
-        try:
-            arcs = read_arcs_data()
-            for arc in arcs:
-                cap = next((c for c in arc["capabilities"] if c["id"] == capability_id), None)
-                if cap:
-                    cap["verified"] = True
-                    cap["evidence"] = claim
-                    cap["evidenceIds"] = sorted(set((cap.get("evidenceIds") or []) + [ev_id]))
-                    cap["verifiedAt"] = datetime.now(UTC).isoformat()
-                    break
-            save_arcs_data(arcs)
-        except Exception as err:
-            print(f"Error auto-syncing capability in ARCS.json: {err}")
+        link_capability(capability_id, claim, ev_id)
 
     return {
         "ok": True,
@@ -242,7 +210,13 @@ def evidence_record(
 def evidence_list(
     arc_id: str | None = None, surface: str | None = None, search: str | None = None
 ) -> dict:
-    """Lists and searches the collection of auditable L2 facts and evidence backing the profile's capabilities."""
+    """Lists and searches the collection of auditable L2 facts and evidence backing the profile's capabilities.
+
+    Args:
+        arc_id: Only return evidence linked to this Capability Arc.
+        surface: Only return evidence from this surface (benchmark, code_review, ...).
+        search: Keyword to match against the claim and metric.
+    """
     evidences = read_evidences()
     if arc_id:
         evidences = [e for e in evidences if e.get("arcId") == arc_id]

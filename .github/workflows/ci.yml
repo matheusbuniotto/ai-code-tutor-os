@@ -34,7 +34,7 @@ jobs:
       - name: ty check
         run: uvx ty check --project .
 
-      - name: import smoke test
-        env:
-          OPENAI_API_KEY: ci-smoke-test-dummy-key
-        run: uv run python -c "import tutor_os.server"
+      # Covers the import smoke test: tests/ imports tutor_os.server.
+      # LLM evals are excluded by the `-m 'not llm'` default in pyproject.toml.
+      - name: pytest
+        run: uv run pytest -q

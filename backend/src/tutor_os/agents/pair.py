@@ -1,4 +1,4 @@
-"""Port of src/mastra/agents/pair.ts."""
+"""Pair: XP-style pairing partner — one continuous session, no phase bureaucracy."""
 
 from __future__ import annotations
 
@@ -103,10 +103,10 @@ TOOL_FUNCTIONS = [
     update_working_memory,
 ]
 
-pair_agent = Agent(
+agent = Agent(
     get_model(),
     name="pair",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
-pair_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)

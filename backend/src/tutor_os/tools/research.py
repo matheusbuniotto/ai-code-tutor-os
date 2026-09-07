@@ -1,9 +1,4 @@
-"""Port of src/mastra/tools/research.ts.
-
-High-performance academic search engine (250M+ papers): OpenAlex + arXiv.
-Plus a free multi-source technical web search (StackOverflow, GitHub,
-Wikipedia, Hacker News) — no API keys required.
-"""
+"""arXiv and web search for the Researcher."""
 
 from __future__ import annotations
 

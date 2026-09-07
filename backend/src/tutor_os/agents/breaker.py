@@ -1,4 +1,4 @@
-"""Port of src/mastra/agents/subagents.ts (breakerAgent)."""
+"""Breaker: designs challenges that break the tracer bullet at its edges (phase 3)."""
 
 from __future__ import annotations
 
@@ -31,10 +31,10 @@ TOOL_FUNCTIONS = [
     update_working_memory,
 ]
 
-breaker_agent = Agent(
+agent = Agent(
     get_model(),
     name="breaker",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
-breaker_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)

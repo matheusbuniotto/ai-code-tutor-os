@@ -1,8 +1,4 @@
-"""Port of src/mastra/tools/rescue.ts.
-
-Cognitive Rescue Engine: diagnoses real-time blockages against the 2E
-profile and prescribes exactly ONE concrete micro-intervention.
-"""
+"""Cognitive Rescue Engine: diagnoses a live blockage and prescribes exactly one micro-intervention."""
 
 from __future__ import annotations
 

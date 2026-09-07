@@ -1,19 +1,14 @@
-"""Port of src/mastra/tools/delegation.ts (partial, by design).
+"""A2A protocol: the Tutor delegates genuinely multi-step work to other agents.
 
-A2A (Agent-to-Agent) protocol: lets the Tutor (Unified Navigator) delegate
-genuinely multi-step work to independent internal agents.
-
-Challenger, Reviewer and Teacher were downgraded from full agents to
-pydantic-ai-harness Skills (py/.agents/skills/) — each is a single
-prompt-shaped behavior with no autonomous tool loop of its own, and as A2A
-tools they only lost the Tutor's conversation history for no benefit. See
-tutor_os.agents.tutor for how the Skills capability is wired in.
+Only Assigner and Researcher are here. Challenger, Reviewer and Teacher are
+Skills instead (backend/.agents/skills/) — single prompt-shaped behaviors with
+no tool loop of their own, which as A2A tools would only lose the Tutor's
+conversation history for no benefit.
 """
 
 from __future__ import annotations
 
-from tutor_os.agents.assigner import assigner_agent
-from tutor_os.agents.researcher import researcher_agent
+from tutor_os.agents import assigner, researcher
 
 
 async def delegate_to_assigner(
@@ -32,7 +27,7 @@ Capability / Judgment Goal: {capability_or_goal}
 {f"Technical Context: {context}" + chr(10) if context else ""}
 Generate the structured engineering challenge in the Predict -> Measure -> Mutate -> Explain protocol and save it to the project's ASSIGNMENT.md."""
 
-    result = await assigner_agent.run(prompt)
+    result = await assigner.agent.run(prompt)
     return {"assignment": result.output or ""}
 
 
@@ -49,5 +44,5 @@ async def invoke_researcher(question: str, context: str | None = None) -> dict:
         else question
     )
 
-    result = await researcher_agent.run(prompt)
+    result = await researcher.agent.run(prompt)
     return {"report": result.output or ""}
