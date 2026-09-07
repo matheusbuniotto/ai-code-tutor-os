@@ -214,7 +214,7 @@ export async function loadWorkspaceData() {
                         <button onclick="event.stopPropagation(); event.preventDefault(); restoreProject('${escapeHtml(ap.slug)}')" title="Restaurar para Ativos" class="p-1 hover:bg-[var(--accent-subtle)] text-[var(--text-muted)] hover:text-[var(--accent)] rounded transition-colors cursor-pointer">
                           <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                         </button>
-                        <button onclick="event.stopPropagation(); event.preventDefault(); promptDeleteProject('${escapeHtml(ap.slug)}', true)" title="Excluir Definitivamente" class="p-1 hover:bg-red-950/80 text-[var(--text-dim)] hover:text-red-400 rounded transition-colors cursor-pointer">
+                        <button onclick="event.stopPropagation(); event.preventDefault(); promptDeleteProject('${escapeHtml(ap.slug)}', true)" title="Delete Permanently" class="p-1 hover:bg-red-950/80 text-[var(--text-dim)] hover:text-red-400 rounded transition-colors cursor-pointer">
                           <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                         </button>
                       </div>
@@ -256,7 +256,7 @@ export async function openWorkspaceFile(slug, filePath, isArchived = false) {
 
   saveStatus.classList.add('hidden');
   title.textContent = slug ? `${isArchived ? '[Arquivado] ' : ''}${slug} / ${filePath}` : filePath;
-  editor.value = "Carregando...";
+  editor.value = "Loading...";
   modal.classList.remove('hidden');
 
   try {
@@ -272,7 +272,7 @@ export async function openWorkspaceFile(slug, filePath, isArchived = false) {
     editor.value = data.content || "";
     editor.focus();
   } catch (err) {
-    editor.value = `Erro ao ler arquivo: ${err.message}`;
+    editor.value = `Error reading file: ${err.message}`;
   }
 }
 
@@ -300,7 +300,7 @@ export async function saveCurrentFileContent() {
     setTimeout(() => saveStatus.classList.add('hidden'), 2500);
     loadWorkspaceData();
   } catch (err) {
-    alert(`Erro ao salvar arquivo: ${err.message}`);
+    alert(`Error saving file: ${err.message}`);
   }
 }
 
@@ -362,7 +362,7 @@ export async function executeArchive(slug, action) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     loadWorkspaceData();
   } catch (err) {
-    alert(`Erro ao ${action === 'archive' ? 'arquivar' : 'restaurar'}: ${err.message}`);
+    alert(`Error ${action === 'archive' ? 'archiving' : 'restoring'}: ${err.message}`);
   }
 }
 
@@ -403,7 +403,7 @@ export async function handleCreateFileSubmit(e) {
     loadWorkspaceData();
     openWorkspaceFile(slug, fullRelPath);
   } catch (err) {
-    alert(`Erro ao criar arquivo: ${err.message}`);
+    alert(`Error creating file: ${err.message}`);
   }
 }
 

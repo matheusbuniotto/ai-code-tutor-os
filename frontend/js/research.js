@@ -206,9 +206,9 @@ export async function dissectPaper(url, title, abstract) {
   } catch (err) {
     container.innerHTML = `
       <div class="p-4 rounded-xl bg-red-950/40 border border-red-800 text-red-300 space-y-2">
-        <div class="font-bold">Erro ao dissecar paper:</div>
+        <div class="font-bold">Error dissecting paper:</div>
         <div class="text-xs font-mono">${escapeHtml(err.message)}</div>
-        <button onclick="closePaperPageIndexModal()" class="px-3 py-1 bg-red-800 hover:bg-red-700 text-white rounded-lg text-xs font-bold mt-2 cursor-pointer">Fechar</button>
+        <button onclick="closePaperPageIndexModal()" class="px-3 py-1 bg-red-800 hover:bg-red-700 text-white rounded-lg text-xs font-bold mt-2 cursor-pointer">Close</button>
       </div>
     `;
   }
@@ -392,7 +392,7 @@ export async function exportDissectionToL2(btn) {
     loadMemoryData();
     loadArcsData();
   } catch (err) {
-    alert(`Erro ao exportar fato L2: ${err.message}`);
+    alert(`Error exporting L2 fact: ${err.message}`);
     btn.disabled = false;
     btn.textContent = "Gravar Fato L2";
   }

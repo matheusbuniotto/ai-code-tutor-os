@@ -64,7 +64,7 @@ export function appendCompactSummaryCard(count, summaryText) {
 }
 
 export async function triggerManualCompact() {
-  const notice = appendSystemNoticeCard(`<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Compactando conversa...</span>`);
+  const notice = appendSystemNoticeCard(`<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Compacting conversation...</span>`);
   lucide.createIcons();
   try {
     const res = await fetch(`${API_BASE}/api/thread/compact`, {
@@ -76,7 +76,7 @@ export async function triggerManualCompact() {
     if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
     if (data.skipped) {
-      notice.innerHTML = `<i data-lucide="info" class="w-3.5 h-3.5"></i><span>Conversa ainda curta — nada pra compactar.</span>`;
+      notice.innerHTML = `<i data-lucide="info" class="w-3.5 h-3.5"></i><span>Conversation still short — nothing to compact.</span>`;
       lucide.createIcons();
       return;
     }
@@ -425,9 +425,9 @@ export async function sendChatMessage(text) {
                   <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2 font-bold">
                       <span class="text-xs inline-flex items-center justify-center shrink-0 select-none">⚠️</span>
-                      <span class="text-xs text-red-300">Falha em: <b>${escapeHtml(info.agentName)}</b></span>
+                      <span class="text-xs text-red-300">Failed at: <b>${escapeHtml(info.agentName)}</b></span>
                     </div>
-                    <span class="text-[10px] text-red-400 bg-red-950/80 px-2 py-0.5 rounded-full border border-red-700/80 font-mono">Erro ✗</span>
+                    <span class="text-[10px] text-red-400 bg-red-950/80 px-2 py-0.5 rounded-full border border-red-700/80 font-mono">Error ✗</span>
                   </div>
                   <div class="text-[11px] text-red-200 font-sans leading-snug">${escapeHtml(String(data.error))}</div>
                 </div>

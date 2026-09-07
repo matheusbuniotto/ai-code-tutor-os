@@ -38,7 +38,7 @@ export async function handleQuickInboxSubmit(e) {
     closeQuickInboxModal();
     loadWorkspaceData();
   } catch (err) {
-    alert(`Erro ao salvar no Inbox: ${err.message}`);
+    alert(`Error saving to Inbox: ${err.message}`);
   } finally {
     submitBtn.disabled = false;
     submitBtn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Guardar no Inbox</span>`;

@@ -93,7 +93,7 @@ export async function saveLearnerProfile() {
       }
     }
   } catch (err) {
-    alert(`Erro ao salvar perfil: ${err.message}`);
+    alert(`Error saving profile: ${err.message}`);
   }
 }
 

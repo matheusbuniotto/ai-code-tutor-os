@@ -190,7 +190,7 @@ export function renderMemoryContent() {
         <div class="space-y-1.5">
           ${experiments.length === 0 ? `
             <div class="text-[11px] p-2 theme-card rounded-xl border theme-border text-center" style="color: var(--text-dim);">
-              Nenhum experimento registrado ainda.
+              No experiments recorded yet.
             </div>
           ` : ''}
           ${experiments.map(exp => {
@@ -203,7 +203,7 @@ export function renderMemoryContent() {
                   <span class="font-bold text-[11px] flex-1" style="color: var(--text-main);">${escapeHtml(exp.title)}</span>
                   <div class="flex items-center gap-1.5 shrink-0">
                     <span class="text-[9px] font-mono px-1.5 py-0.2 rounded uppercase border font-bold" style="${isActive ? 'background-color: var(--accent-subtle); color: var(--accent); border-color: var(--accent);' : isKept ? 'background-color: rgba(16, 185, 129, 0.15); color: #34d399; border-color: #059669;' : 'background-color: var(--bg-card-hover); color: var(--text-dim); border-color: var(--border-subtle);'}">${isKept ? '✓ Mantido' : isDropped ? '✗ Descartado' : '⚡ Ativo'}</span>
-                    <button onclick="promptDeleteExperiment('${escapeHtml(exp.id)}', '${escapeHtml(exp.title)}')" title="Excluir Experimento" class="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-red-400 transition-opacity cursor-pointer">
+                    <button onclick="promptDeleteExperiment('${escapeHtml(exp.id)}', '${escapeHtml(exp.title)}')" title="Delete Experiment" class="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-red-400 transition-opacity cursor-pointer">
                       <i data-lucide="trash-2" class="w-3 h-3"></i>
                     </button>
                   </div>
@@ -504,7 +504,7 @@ export async function updateExperimentStatus(expId, newStatus) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     loadMemoryData();
   } catch (err) {
-    alert(`Erro ao atualizar experimento: ${err.message}`);
+    alert(`Error updating experiment: ${err.message}`);
   }
 }
 
@@ -542,7 +542,7 @@ export async function handleCreateExperimentSubmit(e) {
     closeAddExperimentModal();
     loadMemoryData();
   } catch (err) {
-    alert(`Erro ao adicionar experimento: ${err.message}`);
+    alert(`Error adding experiment: ${err.message}`);
   }
 }
 
