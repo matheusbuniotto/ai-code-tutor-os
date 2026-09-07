@@ -751,12 +751,12 @@
       const diffHour = Math.floor(diffMin / 60);
       const diffDay = Math.floor(diffHour / 24);
 
-      if (diffSec < 60) return 'Agora';
+      if (diffSec < 60) return 'Now';
       if (diffMin < 60) return `${diffMin}m`;
       if (diffHour < 24) return `${diffHour}h`;
-      if (diffDay === 1) return 'Ontem';
+      if (diffDay === 1) return 'Yesterday';
       if (diffDay < 7) return `${diffDay}d`;
-      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+      return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
     }
 
     function getDateGroup(dateStr) {

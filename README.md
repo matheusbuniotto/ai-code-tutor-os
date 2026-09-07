@@ -130,6 +130,8 @@ Vector databases are the wrong abstraction for a single engineer's learning memo
 - **Tauri 2 + Rust**: Spawns and manages the Python backend process with instant startup, minimal RAM usage, and no Electron overhead (see [ADR 0004](docs/adr/0004-tauri-over-electron.md)).
 - **Zero-Build Frontend**: Plain HTML, CSS, and vanilla JS served directly by FastAPI. No Node bundler, no hydration mismatches, no build pipeline.
 
+> **Note:** the entire frontend (`frontend/`) is AI-generated code — every line was written by an AI assistant. The layout, interaction design, and visual direction are mine; I steered and reviewed each piece rather than typing the implementation by hand.
+
 ---
 
 ## 🗺️ Capability Arcs & Learning Road
