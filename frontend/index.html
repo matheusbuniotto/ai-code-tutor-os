@@ -942,33 +942,47 @@
       <!-- Scrollable Body -->
       <div class="flex-1 min-h-0 overflow-y-auto space-y-5 pr-1 text-xs">
 
-        <!-- 0. AI Model & Provider Switcher -->
-        <div class="space-y-2 theme-card p-3.5 rounded-xl border theme-border">
+        <!-- 0. AI Connection: model + gateway (base URL / key) -->
+        <div class="space-y-2.5 theme-card p-3.5 rounded-xl border theme-border">
           <div class="flex items-center justify-between">
             <label class="font-semibold uppercase tracking-wider theme-accent flex items-center gap-1.5 text-[11px]">
               <i data-lucide="cpu" class="w-3.5 h-3.5 theme-accent pointer-events-none"></i>
-              <span>Active AI Model:</span>
+              <span>AI Connection:</span>
             </label>
-            <span id="active-model-badge" class="font-mono text-[10px] px-2 py-0.5 rounded-full border font-bold" style="background-color: var(--accent-subtle); color: var(--accent); border-color: var(--accent);">muse-spark-1.2-contributor</span>
+            <span id="ai-config-status" class="text-emerald-400 font-bold text-[10px] hidden">✓ Saved</span>
           </div>
-          <div class="flex items-center gap-2">
-            <select id="model-select-dropdown" onchange="handleModelDropdownChange(this.value)" class="flex-1 theme-input border theme-border rounded-lg p-2 text-xs font-mono focus:outline-none focus:border-[var(--accent)] cursor-pointer">
-              <option value="muse-spark-1.2-contributor">Muse Spark 1.2 Contributor (OpenCode Go) ★</option>
-              <option value="deepseek-v4-flash">DeepSeek V4 Flash (OpenCode / DeepSeek)</option>
-              <option value="gpt-4o">GPT-4o (OpenAI)</option>
-              <option value="gpt-4o-mini">GPT-4o Mini (OpenAI)</option>
-              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Anthropic)</option>
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash (Google)</option>
-              <option value="qwen-2.5-coder-32b">Qwen 2.5 Coder 32B (Alibaba)</option>
-              <option value="custom">✏️ Other custom model...</option>
-            </select>
-            <button onclick="promptCustomModel()" class="px-3 py-2 btn-secondary rounded-lg text-xs font-semibold cursor-pointer shrink-0">
-              Custom
+
+          <div class="space-y-1">
+            <label class="text-[10px] text-zinc-400">Model</label>
+            <div class="flex items-center gap-2">
+              <select id="model-select-dropdown" onchange="onModelSelectChange(this.value)" class="flex-1 theme-input border theme-border rounded-lg p-2 text-xs font-mono focus:outline-none focus:border-[var(--accent)] cursor-pointer">
+                <option value="muse-spark-1.2-contributor">Muse Spark 1.2 Contributor (OpenCode Go) ★</option>
+                <option value="deepseek-v4-flash">DeepSeek V4 Flash (OpenCode / DeepSeek)</option>
+                <option value="gpt-4o">GPT-4o (OpenAI)</option>
+                <option value="gpt-4o-mini">GPT-4o Mini (OpenAI)</option>
+                <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Anthropic)</option>
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash (Google)</option>
+                <option value="qwen-2.5-coder-32b">Qwen 2.5 Coder 32B (Alibaba)</option>
+                <option value="custom">✏️ Custom model ID...</option>
+              </select>
+            </div>
+            <input id="model-custom-input" type="text" placeholder="Custom model ID" class="hidden w-full theme-input border theme-border rounded-lg p-2 text-xs font-mono focus:outline-none focus:border-[var(--accent)]">
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-[10px] text-zinc-400">Base URL (OpenAI-compatible endpoint)</label>
+            <input id="config-base-url" type="text" placeholder="https://opencode.ai/zen/go/v1" class="w-full theme-input border theme-border rounded-lg p-2 text-xs font-mono focus:outline-none focus:border-[var(--accent)]">
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-[10px] text-zinc-400">API Key <span id="config-api-key-status" class="text-zinc-600"></span></label>
+            <input id="config-api-key" type="password" placeholder="Leave blank to keep current key" class="w-full theme-input border theme-border rounded-lg p-2 text-xs font-mono focus:outline-none focus:border-[var(--accent)]" autocomplete="off">
+          </div>
+
+          <div class="flex items-center justify-end pt-1">
+            <button onclick="saveAiConfig()" class="px-3 py-1.5 btn-primary rounded-lg text-xs font-semibold cursor-pointer shrink-0">
+              Save
             </button>
-          </div>
-          <div class="text-[10px] text-zinc-400 flex items-center justify-between pt-0.5">
-            <span>Gateway: <code class="text-zinc-300">https://opencode.ai/zen/go/v1</code></span>
-            <span id="model-update-status" class="text-emerald-400 font-bold hidden">✓ Updated</span>
           </div>
         </div>
 

@@ -88,5 +88,38 @@
       }
     ],
     "linkedProjects": []
+  },
+  {
+    "id": "arc-rust-lowlevel",
+    "title": "Rust as an Instrument for Systems Judgment",
+    "description": "Use Rust's ownership, memory layout, and concurrency primitives to make systems-behavior judgment empirically provable. Each tracer bullet verifies a pending capability in arc1 (behavior) and arc2 (systems): memory layout, lock contention, WAL I/O, backpressure.",
+    "color": "emerald",
+    "status": "in_progress",
+    "linkedProjects": [
+      "arc-rust-tracer"
+    ],
+    "capabilities": [
+      {
+        "id": "cap-memory-layout-cache",
+        "title": "Judge memory layout trade-offs (AoS vs SoA) and cache locality",
+        "verified": false
+      },
+      {
+        "id": "cap-lock-contention",
+        "title": "Diagnose lock contention under parallel concurrency",
+        "verified": false
+      },
+      {
+        "id": "cap-wal-io-saturation",
+        "title": "Predict and mitigate I/O saturation in Write-Ahead Logging (WAL)",
+        "verified": false
+      },
+      {
+        "id": "cap-backpressure",
+        "title": "Implement flow control and reactive backpressure under overload",
+        "verified": false
+      }
+    ],
+    "updatedAt": "2026-09-07T16:02:55.306296+00:00"
   }
 ]

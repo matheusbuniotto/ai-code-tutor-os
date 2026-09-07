@@ -7,10 +7,15 @@ rebuilds an Agent.
 from __future__ import annotations
 
 import os
+import uuid
 from dataclasses import dataclass
 
+import httpx
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+
+# OpenCode Go rejects requests with no session affinity (400 MissingSessionID).
+_http_client = httpx.AsyncClient(headers={"x-opencode-session": uuid.uuid4().hex})
 
 _base_url = (
     os.environ.get("OPENCODE_BASE_URL")
@@ -79,4 +84,7 @@ def update_runtime_config(
 
 def get_model(model_name: str | None = None) -> OpenAIChatModel:
     chosen = model_name or _active_model_name
-    return OpenAIChatModel(chosen, provider=OpenAIProvider(base_url=_base_url, api_key=_api_key))
+    return OpenAIChatModel(
+        chosen,
+        provider=OpenAIProvider(base_url=_base_url, api_key=_api_key, http_client=_http_client),
+    )
