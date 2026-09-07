@@ -203,7 +203,8 @@ Prerequisites: [Rust & Cargo](https://rustup.rs/).
 
 ```bash
 cd desktop/src-tauri
-cargo tauri dev
+cargo build
+cargo run dev
 ```
 
 ---
