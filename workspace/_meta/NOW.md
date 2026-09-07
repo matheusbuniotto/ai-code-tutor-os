@@ -1,12 +1,12 @@
 # NOW — Active Focus
 
-**Project:** none
-**Mission:** (no active mission)
-**Phase:** 1/4
-**Date:** 2026-09-06
+**Project:** arc-rust-tracer
+**Mission:** Rust tracer bullets — prove systems judgment empirically
+**Phase:** 2/4
+**Date:** 2026-09-07
 
 ## Observable Objective
-No active project right now
+Bullet 2 (memory layout) green: benchmark AoS vs SoA cache locality with a reproducible p99 metric, verifying cap-memory-layout-cache.
 
 ## Next Action (< 2min)
-Define a new mission when there's demand for one
+Run toolchain install + cargo new, then open ASSIGNMENT.md for the memory-layout bench

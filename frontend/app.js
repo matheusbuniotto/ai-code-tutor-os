@@ -3672,66 +3672,50 @@
       try {
         const res = await fetch(`${API_BASE}/api/config`);
         const data = await res.json();
-        if (data && data.model) {
-          const badge = document.getElementById('active-model-badge');
-          const dropdown = document.getElementById('model-select-dropdown');
-          if (badge) badge.textContent = data.model;
-          if (dropdown) {
-            let found = false;
-            for (let opt of dropdown.options) {
-              if (opt.value === data.model) {
-                dropdown.value = data.model;
-                found = true;
-                break;
-              }
-            }
-            if (!found) {
-              const newOpt = new Option(`${data.model} (Custom)`, data.model, true, true);
-              dropdown.add(newOpt, dropdown.options.length - 1);
-              dropdown.value = data.model;
-            }
-          }
-        }
+        if (!data) return;
+
+        const dropdown = document.getElementById('model-select-dropdown');
+        const customInput = document.getElementById('model-custom-input');
+        const knownModel = data.model && [...dropdown.options].some(o => o.value === data.model);
+        dropdown.value = knownModel ? data.model : 'custom';
+        customInput.value = knownModel ? '' : (data.model || '');
+        customInput.classList.toggle('hidden', knownModel);
+
+        document.getElementById('config-base-url').value = data.baseURL || '';
+        document.getElementById('config-api-key-status').textContent = data.hasApiKey ? '(key set)' : '(no key set)';
       } catch (e) {}
     }
 
-    async function handleModelDropdownChange(modelId) {
-      if (modelId === 'custom') {
-        promptCustomModel();
-        return;
-      }
-      await updateActiveModel(modelId);
+    function onModelSelectChange(value) {
+      document.getElementById('model-custom-input').classList.toggle('hidden', value !== 'custom');
     }
 
-    function promptCustomModel() {
-      const custom = window.prompt("Enter the AI model name or ID (e.g. gpt-4o, qwen-2.5-coder-32b):");
-      if (custom && custom.trim()) {
-        updateActiveModel(custom.trim());
-      } else {
-        loadActiveModelConfig();
-      }
-    }
+    async function saveAiConfig() {
+      const dropdown = document.getElementById('model-select-dropdown');
+      const model = dropdown.value === 'custom'
+        ? document.getElementById('model-custom-input').value.trim()
+        : dropdown.value;
+      const apiKeyInput = document.getElementById('config-api-key');
 
-    async function updateActiveModel(modelName) {
+      const payload = { model, base_url: document.getElementById('config-base-url').value.trim() };
+      if (apiKeyInput.value.trim()) payload.api_key = apiKeyInput.value.trim();
+
       try {
         const res = await fetch(`${API_BASE}/api/config`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ model: modelName })
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
-        if (data.ok) {
-          const badge = document.getElementById('active-model-badge');
-          const status = document.getElementById('model-update-status');
-          if (badge) badge.textContent = modelName;
-          if (status) {
-            status.classList.remove('hidden');
-            setTimeout(() => status.classList.add('hidden'), 3000);
-          }
-          loadActiveModelConfig();
-        }
+        if (!data.ok) throw new Error("save failed");
+
+        apiKeyInput.value = '';
+        loadActiveModelConfig();
+        const status = document.getElementById('ai-config-status');
+        status.classList.remove('hidden');
+        setTimeout(() => status.classList.add('hidden'), 3000);
       } catch (err) {
-        alert(`Error changing model: ${err.message}`);
+        alert(`Error saving AI connection: ${err.message}`);
       }
     }
 
