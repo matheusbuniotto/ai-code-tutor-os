@@ -1,14 +1,15 @@
-"""Port of src/mastra/tools/arcs.ts."""
+"""Capability Arcs: the long-term skill map, and the evidence that verifies it."""
 
 from __future__ import annotations
 
-import json
+from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Literal, TypedDict
 
-from tutor_os.storage import WORKSPACE_ROOT
+from tutor_os.storage import META_DIR, read_json, write_json
 
-ARCS_FILE = WORKSPACE_ROOT / "_meta" / "ARCS.json"
+ARCS_FILE = META_DIR / "ARCS.json"
+ARCHIVE_DIR = META_DIR / "archive"
 
 ArcStatus = Literal["in_progress", "mastered", "backlog"]
 
@@ -44,14 +45,14 @@ DEFAULT_ARCS: list[CapabilityArc] = [
             {
                 "id": "cap-lock-contention",
                 "title": "Diagnose lock contention under parallel concurrency",
-                "verified": True,
-                "evidence": "Rust benchmark ranging from 1 to 64 threads with Mutex vs RwLock.",
+                "verified": False,
+                "evidence": "",
             },
             {
                 "id": "cap-wal-io-saturation",
                 "title": "Predict and mitigate I/O saturation in Write-Ahead Logging (WAL)",
-                "verified": True,
-                "evidence": "Demonstrated the sequential fsync limit and implemented group commit.",
+                "verified": False,
+                "evidence": "",
             },
             {
                 "id": "cap-idempotent-execution",
@@ -66,7 +67,7 @@ DEFAULT_ARCS: list[CapabilityArc] = [
                 "evidence": "",
             },
         ],
-        "linkedProjects": ["eda-for-ai-rust"],
+        "linkedProjects": [],
     },
     {
         "id": "arc2_systems",
@@ -94,7 +95,7 @@ DEFAULT_ARCS: list[CapabilityArc] = [
                 "evidence": "",
             },
         ],
-        "linkedProjects": ["eda-for-ai-rust"],
+        "linkedProjects": [],
     },
     {
         "id": "arc3_ai_systems",
@@ -128,18 +129,17 @@ DEFAULT_ARCS: list[CapabilityArc] = [
 
 
 def read_arcs_data() -> list[CapabilityArc]:
-    try:
-        if ARCS_FILE.exists():
-            return json.loads(ARCS_FILE.read_text(encoding="utf-8"))
-    except Exception as err:
-        print(f"Error reading ARCS.json, falling back to defaults: {err}")
-    save_arcs_data(DEFAULT_ARCS)
-    return DEFAULT_ARCS
+    stored = read_json(ARCS_FILE)
+    if stored is None:
+        # Deep copy: callers mutate what they get back, and DEFAULT_ARCS is a
+        # module-level constant that must stay pristine for the next read.
+        stored = deepcopy(DEFAULT_ARCS)
+        save_arcs_data(stored)
+    return stored
 
 
 def save_arcs_data(arcs: list[CapabilityArc]) -> None:
-    ARCS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    ARCS_FILE.write_text(json.dumps(arcs, indent=2, ensure_ascii=False), encoding="utf-8")
+    write_json(ARCS_FILE, arcs)
 
 
 def arcs_list() -> dict:
@@ -169,20 +169,20 @@ def arc_create_or_update(
     """
     arcs = read_arcs_data()
     idx = next((i for i, a in enumerate(arcs) if a["id"] == id), -1)
-    existing = arcs[idx] if idx >= 0 else None
+    existing: CapabilityArc = arcs[idx] if idx >= 0 else {}
 
     updated_arc: CapabilityArc = {
         "id": id,
         "title": title,
         "description": description,
-        "color": color or (existing or {}).get("color", "emerald"),
-        "status": status or (existing or {}).get("status", "in_progress"),
+        "color": color or existing.get("color", "emerald"),
+        "status": status or existing.get("status", "in_progress"),
         "linkedProjects": linked_projects
         if linked_projects is not None
-        else (existing or {}).get("linkedProjects", []),
+        else existing.get("linkedProjects", []),
         "capabilities": capabilities
         if capabilities is not None
-        else (existing or {}).get("capabilities", []),
+        else existing.get("capabilities", []),
         "updatedAt": datetime.now(UTC).isoformat(),
     }
 
@@ -196,7 +196,13 @@ def arc_create_or_update(
 
 
 def capability_verify(arc_id: str, capability_id: str, evidence: str) -> dict:
-    """[HARVESTER / REVIEWER] Records verified empirical evidence for a capability goal within an Arc."""
+    """[HARVESTER / REVIEWER] Records verified empirical evidence for a capability goal within an Arc.
+
+    Args:
+        arc_id: ID of the arc holding the capability.
+        capability_id: ID of the capability being verified.
+        evidence: What proves it — benchmark, measurement, or artifact.
+    """
     arcs = read_arcs_data()
     arc = next((a for a in arcs if a["id"] == arc_id), None)
     if not arc:
@@ -222,7 +228,11 @@ def capability_verify(arc_id: str, capability_id: str, evidence: str) -> dict:
 
 
 def arc_delete(arc_id: str) -> dict:
-    """Deletes a capability arc by ID."""
+    """Deletes a capability arc by ID.
+
+    Args:
+        arc_id: ID of the arc to delete.
+    """
     arcs = [a for a in read_arcs_data() if a["id"] != arc_id]
     save_arcs_data(arcs)
     return {"ok": True}
@@ -234,25 +244,14 @@ def arcs_snapshot_and_reset(reason: str | None = None) -> dict:
     Never loses verified evidence. Use when the learner wants to "forget" the
     previous roadmap/arcs without destroying already-verified evidence — do
     not use arc_delete or a manual file rewrite for this.
+
+    Args:
+        reason: Why the roadmap is being reset, stored with the snapshot.
     """
     arcs = read_arcs_data()
-    archive_dir = WORKSPACE_ROOT / "_meta" / "archive"
-    archive_dir.mkdir(parents=True, exist_ok=True)
-
-    timestamp = datetime.now(UTC).isoformat().replace(":", "-").replace(".", "-")
-    snapshot_path = archive_dir / f"ARCS-{timestamp}.json"
-    snapshot_path.write_text(
-        json.dumps(
-            {
-                "archivedAt": datetime.now(UTC).isoformat(),
-                "reason": reason or "",
-                "arcs": arcs,
-            },
-            indent=2,
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
+    now = datetime.now(UTC).isoformat()
+    snapshot_path = ARCHIVE_DIR / f"ARCS-{now.replace(':', '-').replace('.', '-')}.json"
+    write_json(snapshot_path, {"archivedAt": now, "reason": reason or "", "arcs": arcs})
 
     save_arcs_data([])
     return {"ok": True, "snapshotPath": str(snapshot_path), "archivedArcs": len(arcs)}

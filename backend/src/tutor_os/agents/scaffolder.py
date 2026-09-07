@@ -1,4 +1,4 @@
-"""Port of src/mastra/agents/subagents.ts (scaffolderAgent)."""
+"""Scaffolder: generates the tracer-bullet skeleton with named gaps (phase 2)."""
 
 from __future__ import annotations
 
@@ -33,10 +33,10 @@ TOOL_FUNCTIONS = [
     update_working_memory,
 ]
 
-scaffolder_agent = Agent(
+agent = Agent(
     get_model(),
     name="scaffolder",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
-scaffolder_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)

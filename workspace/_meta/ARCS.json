@@ -9,14 +9,14 @@
       {
         "id": "cap-lock-contention",
         "title": "Diagnose lock contention under parallel concurrency",
-        "verified": true,
-        "evidence": "Rust benchmark ranging from 1 to 64 threads with Mutex vs RwLock."
+        "verified": false,
+        "evidence": ""
       },
       {
         "id": "cap-wal-io-saturation",
         "title": "Predict and mitigate I/O saturation in Write-Ahead Logging (WAL)",
-        "verified": true,
-        "evidence": "Demonstrated the sequential fsync limit and implemented group commit."
+        "verified": false,
+        "evidence": ""
       },
       {
         "id": "cap-idempotent-execution",
@@ -31,9 +31,7 @@
         "evidence": ""
       }
     ],
-    "linkedProjects": [
-      "eda-for-ai-rust"
-    ]
+    "linkedProjects": []
   },
   {
     "id": "arc2_systems",
@@ -61,9 +59,7 @@
         "evidence": ""
       }
     ],
-    "linkedProjects": [
-      "eda-for-ai-rust"
-    ]
+    "linkedProjects": []
   },
   {
     "id": "arc3_ai_systems",

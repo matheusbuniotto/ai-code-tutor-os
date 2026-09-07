@@ -13,11 +13,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tutor OS — Mastra AI Cockpit</title>
-  
+
   <!-- Tailwind CSS & Lucide Icons -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
-  
+
   <!-- Marked.js & Highlight.js -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -26,16 +26,12 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
-  
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=VT323&family=Fira+Code:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
-  <!-- XTerm.js (Embedded Real Neovim Terminal) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
+
 
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -45,7 +41,7 @@
   <!-- TOP APPLICATION HEADER (Sleek Theme Faceplate + Cockpit Controls)          -->
   <!-- ========================================================================= -->
   <header class="h-14 border-b theme-border px-4 flex items-center justify-between shrink-0 z-40 transition-colors duration-200 relative select-none" style="background-color: var(--bg-header);">
-    
+
     <!-- Left: Sidebar Toggle + Title + Agent Switcher -->
     <div class="flex items-center gap-3 app-no-drag z-10" data-tauri-drag-region="false">
       <button onclick="toggleSidebar()" title="Alternar Barra Lateral (Cmd+B)" class="p-2 rounded-lg theme-card border hover:border-[var(--accent)] transition-all shadow-sm cursor-pointer" style="color: var(--text-muted);" data-tauri-drag-region="false">
@@ -61,11 +57,17 @@
 
       <div class="h-4 w-px mx-1" style="background-color: var(--border-main);"></div>
 
-      <!-- Single Unified Conductor Badge (Zero Decision Fatigue) -->
-      <div class="flex items-center theme-card border rounded-full px-3 py-1 text-xs font-medium gap-2 shadow-sm transition-all select-none app-no-drag" data-tauri-drag-region="false" title="Single Orchestrator: drives the learning and delegates via A2A automatically">
-        <span class="w-2 h-2 rounded-full animate-pulse" style="background-color: var(--accent); box-shadow: 0 0 6px var(--accent);"></span>
-        <span class="font-bold theme-accent text-xs">🧭 Tutor (Senior Navigator)</span>
-        <input type="hidden" id="agent-selector" value="tutor">
+      <!-- Agent Switcher: Tutor auto-delegates to specialists via A2A/Skills
+           mid-conversation, so only the standalone agents Tutor never
+           delegates to (Pair, Architect) are worth exposing here directly. -->
+      <div class="flex items-center theme-card border rounded-full pl-3 pr-1.5 py-1 text-xs font-medium gap-2 shadow-sm transition-all select-none app-no-drag" data-tauri-drag-region="false" title="Tutor: unified orchestrator, auto-delegates to specialists. Pair & Architect: standalone agents Tutor never delegates to — pick them to talk to directly.">
+        <span id="conductor-pulse-dot" class="w-2 h-2 rounded-full animate-pulse shrink-0" style="background-color: var(--accent); box-shadow: 0 0 6px var(--accent);"></span>
+        <span id="conductor-agent-label" class="font-bold theme-accent text-xs hidden md:inline">🧭 Tutor (Senior Navigator)</span>
+        <select id="agent-selector" onchange="onAgentChanged()" class="bg-transparent text-xs font-bold theme-accent focus:outline-none cursor-pointer app-no-drag border-l theme-border pl-2" data-tauri-drag-region="false">
+          <option value="tutor">🧭 Tutor</option>
+          <option value="pair">🤝 Pair</option>
+          <option value="architect">🏛️ Architect</option>
+        </select>
       </div>
     </div>
 
@@ -103,16 +105,9 @@
     <!-- Drag Spacer 2 -->
     <div data-tauri-drag-region class="app-drag-region flex-1 h-full min-w-[8px]"></div>
 
-    <!-- Right Controls: Neovim Toggle, Font Scaler, Rescue & Settings -->
+    <!-- Right Controls: Font Scaler, Rescue & Settings -->
     <div class="flex items-center gap-2 app-no-drag z-10" data-tauri-drag-region="false">
-      
-      <!-- Embedded Neovim Split Toggle (Cmd+\) -->
-      <button onclick="toggleNeovimSplit()" id="btn-split-editor" title="Toggle Split Screen with Neovim (Cmd+\)" class="px-2.5 py-1 theme-card border hover:border-[var(--accent)] rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer" style="color: var(--text-main);" data-tauri-drag-region="false">
-        <i data-lucide="terminal" class="w-3.5 h-3.5 theme-accent pointer-events-none"></i>
-        <span>Neovim</span>
-        <kbd class="text-[9px] px-1 rounded font-mono pointer-events-none" style="background-color: var(--accent-subtle); color: var(--accent);">⌘\</kbd>
-      </button>
-      
+
       <!-- Quick Inbox Capture Pill (Cmd+I) -->
       <button onclick="openQuickInboxModal()" title="Quick Idea Capture (Cmd+I)" class="px-2.5 py-1 theme-card border hover:border-[var(--accent)] rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer" style="color: var(--text-main);" data-tauri-drag-region="false">
         <i data-lucide="inbox" class="w-3.5 h-3.5 theme-accent pointer-events-none"></i>
@@ -145,15 +140,15 @@
   <!-- MAIN LAYOUT: SIDEBAR WITH MULTI-MODULE HUBS + CHAT CANVAS                -->
   <!-- ========================================================================= -->
   <div class="flex-1 min-h-0 flex overflow-hidden relative">
-    
+
     <!-- LEFT SIDEBAR: DYNAMIC TABS -->
     <aside id="app-sidebar" class="w-80 theme-sidebar border-r flex flex-col shrink-0 transition-all duration-200 z-30">
-      
+
       <!-- TAB 1: CHAT & THREADS VIEW -->
       <div id="sidebar-tab-chat" class="p-3 flex-1 min-h-0 flex flex-col overflow-hidden" style="gap: 8px;">
 
         <!-- New Chat Button -->
-        <button onclick="createNewThread()" class="w-full py-2 px-3 theme-card hover:bg-[var(--bg-card-hover)] border theme-border rounded-xl text-xs font-semibold text-zinc-100 flex items-center justify-between shadow-sm transition-all app-no-drag cursor-pointer" style="flex-shrink:0" data-tauri-drag-region="false">
+        <button onclick="createNewThread(document.getElementById('agent-selector')?.value)" class="w-full py-2 px-3 theme-card hover:bg-[var(--bg-card-hover)] border theme-border rounded-xl text-xs font-semibold text-zinc-100 flex items-center justify-between shadow-sm transition-all app-no-drag cursor-pointer" style="flex-shrink:0" data-tauri-drag-region="false">
           <div class="flex items-center gap-2 pointer-events-none">
             <i data-lucide="plus" class="w-4 h-4 theme-accent"></i>
             <span>New Chat</span>
@@ -337,48 +332,6 @@
 
     <!-- CENTER WORKSPACE / SPLIT CONTAINER -->
     <div id="center-split-container" class="flex-1 min-h-0 flex overflow-hidden relative">
-      
-      <!-- LEFT PANE: EMBEDDED REAL NEOVIM (xterm.js) -->
-      <div id="neovim-pane" class="hidden flex-col border-r theme-border h-full relative shrink-0" style="width: 55%; background-color: var(--bg-app);">
-        <div class="h-9 px-3 border-b theme-border flex items-center justify-between shrink-0 select-none" style="background-color: var(--bg-header);">
-          <!-- Left: Title & Status Badge -->
-          <div class="flex items-center gap-2 text-xs font-mono select-none">
-            <i data-lucide="terminal" class="w-3.5 h-3.5 theme-accent pointer-events-none"></i>
-            <span class="font-bold text-zinc-200">Neovim</span>
-            <span class="text-[10px] text-zinc-500 font-mono hidden sm:inline">workspace/</span>
-            <span id="neovim-status-badge" class="px-1.5 py-0.2 rounded text-[10px] font-mono theme-card theme-accent border theme-border">Ready</span>
-          </div>
-          
-          <!-- Right: Neovim Font Zoom Controls & Window Controls -->
-          <div class="flex items-center gap-1.5">
-            <!-- Neovim Font Zoom Widget -->
-            <div class="flex items-center theme-card border rounded-lg px-1 py-0.5 text-xs shadow-sm" data-tauri-drag-region="false">
-              <button onclick="changeNvimFontSize(-1)" title="Decrease Neovim Font (Cmd -)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer text-[11px] font-bold app-no-drag">A-</button>
-              <button onclick="resetNvimFontSize()" id="nvim-font-size-badge" title="Reset Font (Click for default 17px)" class="px-1.5 font-bold text-[11px] theme-accent font-mono cursor-pointer hover:underline select-none app-no-drag">17px</button>
-              <button onclick="changeNvimFontSize(1)" title="Increase Neovim Font (Cmd +)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer text-[11px] font-bold app-no-drag">A+</button>
-            </div>
-
-            <!-- Pane Width Preset Switcher (55% / 75% / 90% / 40%) -->
-            <button onclick="cycleNeovimWidth()" id="btn-nvim-width" class="px-1.5 py-0.5 rounded text-[10px] font-mono theme-card border theme-border hover:border-[var(--accent)] text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Toggle Editor Width (55% / 75% / 90% / 40%)">
-              <span id="nvim-width-label">55%</span>
-            </button>
-
-            <!-- Restart Neovim -->
-            <button onclick="restartNeovim()" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Restart Neovim Session">
-              <i data-lucide="refresh-cw" class="w-3.5 h-3.5 pointer-events-none"></i>
-            </button>
-            <!-- Maximize / Restore -->
-            <button onclick="toggleNeovimFullscreen()" id="btn-nvim-fullscreen" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Maximize / Restore Fullscreen">
-              <i data-lucide="maximize-2" class="w-3.5 h-3.5 pointer-events-none"></i>
-            </button>
-            <!-- Close Split -->
-            <button onclick="toggleNeovimSplit()" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Close Split (Cmd+\)">
-              <i data-lucide="x" class="w-3.5 h-3.5 pointer-events-none"></i>
-            </button>
-          </div>
-        </div>
-        <div id="terminal-wrapper" class="flex-1 min-h-0 w-full h-full p-1 overflow-hidden" style="background-color: var(--bg-app);"></div>
-      </div>
 
       <!-- RIGHT PANE: TUTOR OS CHAT CANVAS -->
       <main id="chat-pane" class="flex-1 min-h-0 flex flex-col h-full overflow-hidden relative">
@@ -413,7 +366,7 @@
         <!-- Scrollable Message Feed -->
         <div id="chat-feed" class="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 py-6">
           <div id="messages-container" class="max-w-3xl mx-auto space-y-6 pb-6">
-          
+
           <!-- Welcome Greeting Card -->
           <div class="flex items-start gap-3.5">
             <div class="w-8 h-8 rounded-full font-bold flex items-center justify-center text-xs shrink-0 shadow-sm mt-0.5" style="background-color: var(--accent); color: var(--accent-text); box-shadow: 0 2px 8px var(--accent-subtle);">
@@ -429,7 +382,7 @@
                   Session connected to Mastra's agent swarm.
                 </p>
                 <p class="text-sm text-zinc-400">
-                  Manage artifacts in the <b>Workspace</b>, plan <b>Judgment Arcs</b>, or open the <b>Embedded Neovim</b> (<kbd class="px-1 py-0.5 rounded bg-zinc-800 border text-xs">⌘\</kbd>) to pair in the same cockpit.
+                  Manage artifacts in the <b>Workspace</b> or plan <b>Judgment Arcs</b> to pair in the same cockpit.
                 </p>
               </div>
             </div>
@@ -447,16 +400,16 @@
       <!-- BOTTOM DOCK: CAPSULE INPUT -->
       <div class="p-4 bg-gradient-to-t from-[var(--bg-app)] via-[var(--bg-app)] to-transparent shrink-0 app-no-drag">
         <div class="max-w-3xl mx-auto">
-          
+
           <!-- Floating Input Card -->
           <form id="chat-form" onsubmit="handleChatSubmit(event)" class="relative flex flex-col theme-input border rounded-3xl p-2.5 shadow-2xl transition-all">
-            
+
             <!-- Textarea Area -->
             <textarea id="chat-input" rows="1" placeholder="Send a message to the Navigator... (Shift+Enter for a new line)" class="w-full bg-transparent text-base text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none px-3.5 py-2 max-h-48 leading-relaxed font-sans" oninput="autoResizeTextarea(this)" onkeydown="handleInputKeydown(event)"></textarea>
 
             <!-- Bottom Action Row inside Capsule -->
             <div class="flex items-center justify-between pt-1 px-2 text-xs">
-              
+
               <!-- Quick Prompt Pills -->
               <div class="flex items-center gap-1.5 text-zinc-400 flex-wrap">
                 <button type="button" onclick="quickPrompt('Run a diagnostic on my current meta-learning state: active NOW, Arcs, and what the next recommended intervention is.')" class="px-2.5 py-1 rounded-full theme-card hover:bg-[var(--bg-card-hover)] border theme-border transition-colors text-[11px] font-medium theme-accent cursor-pointer">
@@ -493,7 +446,7 @@
 
           <!-- Disclaimer Status -->
           <div class="text-center pt-2 text-[11px] text-zinc-500">
-            Tutor OS — Engineering Judgment, Empirical Challenges &amp; Embedded Neovim (Mastra Core).
+            Tutor OS — Engineering Judgment &amp; Empirical Challenges.
           </div>
 
         </div>
@@ -504,7 +457,7 @@
   <!-- ========================================================================= -->
   <div id="file-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
     <div class="w-full max-w-4xl theme-card border rounded-2xl p-5 shadow-2xl flex flex-col max-h-[90vh] space-y-3">
-      
+
       <!-- Modal Header -->
       <div class="flex items-center justify-between pb-2.5 border-b theme-border">
         <div class="flex items-center gap-2">
@@ -950,7 +903,7 @@
         <ul class="list-disc pl-4 space-y-1 text-zinc-400 text-[11px]">
           <li>Clears the episodic history (<code>EPISODES.jsonl</code>).</li>
           <li>Resets semantic observations to the default calibration.</li>
-          <li>Deletes the local SQLite database (<code>tutor-os.db</code>), eliminating any leaked prior context.</li>
+          <li>Deletes all chat sessions and messages from the local database (<code>tutor-os-py.db</code>), eliminating any leaked prior context.</li>
         </ul>
         <p class="theme-accent font-bold text-[11px]">The agent will start 100% clean from now on.</p>
       </div>
@@ -968,7 +921,7 @@
   <!-- ========================================================================= -->
   <div id="settings-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-6 overflow-y-auto">
     <div class="w-full max-w-2xl theme-card border rounded-2xl p-5 md:p-6 shadow-2xl space-y-5 my-auto max-h-[92vh] flex flex-col">
-      
+
       <!-- Modal Header -->
       <div class="flex items-center justify-between pb-3 border-b theme-border shrink-0">
         <div class="flex items-center gap-2.5">
@@ -988,7 +941,7 @@
 
       <!-- Scrollable Body -->
       <div class="flex-1 min-h-0 overflow-y-auto space-y-5 pr-1 text-xs">
-        
+
         <!-- 0. AI Model & Provider Switcher -->
         <div class="space-y-2 theme-card p-3.5 rounded-xl border theme-border">
           <div class="flex items-center justify-between">
@@ -1077,29 +1030,6 @@
             <button onclick="setFontSize(18)" id="font-btn-18" class="p-2 rounded-lg bg-zinc-900 border theme-border hover:border-[var(--accent)] font-medium transition-all cursor-pointer">18px (Rec)</button>
             <button onclick="setFontSize(20)" id="font-btn-20" class="p-2 rounded-lg bg-zinc-900 border theme-border hover:border-[var(--accent)] font-medium transition-all cursor-pointer">20px</button>
             <button onclick="setFontSize(22)" id="font-btn-22" class="p-2 rounded-lg bg-zinc-900 border theme-border hover:border-[var(--accent)] font-medium transition-all cursor-pointer">22px</button>
-          </div>
-        </div>
-
-        <!-- 1.1 Neovim Terminal Font Scale & Typography -->
-        <div class="space-y-2 bg-zinc-900/60 p-3 rounded-xl border border-emerald-500/30">
-          <div class="flex items-center justify-between">
-            <label class="font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-              <i data-lucide="terminal" class="w-3.5 h-3.5 text-emerald-400"></i>
-              <span>Tipografia &amp; Zoom do Neovim (Terminal):</span>
-            </label>
-            <span id="settings-nvim-font-val" class="font-mono font-bold text-emerald-400">17px</span>
-          </div>
-          <div class="grid grid-cols-6 gap-2 text-xs">
-            <button onclick="setNvimFontSize(14)" id="nvim-font-btn-14" class="p-2 rounded-lg bg-zinc-900 border theme-border hover:border-emerald-400 font-medium transition-all cursor-pointer">14px</button>
-            <button onclick="setNvimFontSize(16)" id="nvim-font-btn-16" class="p-2 rounded-lg bg-zinc-900 border theme-border hover:border-emerald-400 font-medium transition-all cursor-pointer">16px</button>
-            <button onclick="setNvimFontSize(17)" id="nvim-font-btn-17" class="p-2 rounded-lg bg-zinc-900 border theme-border hover:border-emerald-400 font-medium transition-all cursor-pointer">17px ★</button>
-            <button onclick="setNvimFontSize(18)" id="nvim-font-btn-18" class="p-2 rounded-lg bg-zinc-900 border theme-border hover:border-emerald-400 font-medium transition-all cursor-pointer">18px</button>
-            <button onclick="setNvimFontSize(20)" id="nvim-font-btn-20" class="p-2 rounded-lg bg-zinc-900 border theme-border hover:border-emerald-400 font-medium transition-all cursor-pointer">20px</button>
-            <button onclick="setNvimFontSize(22)" id="nvim-font-btn-22" class="p-2 rounded-lg bg-zinc-900 border theme-border hover:border-emerald-400 font-medium transition-all cursor-pointer">22px</button>
-          </div>
-          <div class="flex items-center justify-between text-[11px] text-zinc-400 pt-1">
-            <span>Shortcuts: <kbd class="px-1 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono text-[10px]">Cmd +</kbd> / <kbd class="px-1 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono text-[10px]">Cmd -</kbd> or <kbd class="px-1 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono text-[10px]">Cmd + Scroll</kbd></span>
-            <button onclick="resetNvimFontSize()" class="text-xs text-emerald-400 hover:underline cursor-pointer">Restore Default (17px)</button>
           </div>
         </div>
 

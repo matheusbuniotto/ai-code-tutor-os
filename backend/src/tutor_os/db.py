@@ -1,10 +1,6 @@
-"""Thread & message persistence — our own equivalent of the message-store side
-of Mastra Memory (src/mastra/memory.ts) plus the store calls server.ts makes
-directly (store.listMessages, store.saveThread, ...).
+"""Thread, message and tool-event persistence over SQLite.
 
-Kept as plain functions over sqlite3 rather than a framework object: this is
-exactly what server.ts already did through Mastra's store, just without the
-extra layer.
+Plain functions rather than a store object: nothing here needs a framework.
 """
 
 from __future__ import annotations
@@ -131,6 +127,57 @@ def truncate_from(thread_id: str, from_message_id: str) -> None:
             "DELETE FROM messages WHERE thread_id = ? AND created_at >= ?",
             (thread_id, row["created_at"]),
         )
+
+
+def save_tool_call(
+    thread_id: str,
+    turn_id: str,
+    tool_call_id: str,
+    tool_name: str,
+    skill_id: str | None,
+    args_json: str,
+) -> str:
+    event_id = new_id("tool")
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO tool_events (id, thread_id, turn_id, message_id, tool_call_id, "
+            "tool_name, skill_id, args, result, is_error, created_at) "
+            "VALUES (?, ?, ?, NULL, ?, ?, ?, ?, NULL, 0, ?)",
+            (event_id, thread_id, turn_id, tool_call_id, tool_name, skill_id, args_json, _now()),
+        )
+    return event_id
+
+
+def save_tool_result(tool_call_id: str, result_json: str, is_error: bool) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE tool_events SET result = ?, is_error = ? "
+            "WHERE tool_call_id = ? AND result IS NULL",
+            (result_json, int(is_error), tool_call_id),
+        )
+
+
+def set_tool_events_message_id(turn_id: str, message_id: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE tool_events SET message_id = ? WHERE turn_id = ?", (message_id, turn_id)
+        )
+
+
+def list_tool_events(thread_id: str) -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM tool_events WHERE thread_id = ? ORDER BY created_at ASC",
+            (thread_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_all_threads() -> None:
+    with get_connection() as conn:
+        conn.execute("DELETE FROM messages")
+        conn.execute("DELETE FROM threads")
+        conn.execute("DELETE FROM tool_events")
 
 
 def delete_before(thread_id: str, cutoff_created_at: str) -> None:

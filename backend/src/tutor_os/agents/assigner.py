@@ -1,4 +1,4 @@
-"""Port of src/mastra/agents/assigner.ts."""
+"""Assigner: turns a learning goal into a Predict → Measure → Mutate → Explain challenge."""
 
 from __future__ import annotations
 
@@ -46,10 +46,10 @@ TOOL_FUNCTIONS = [
     update_working_memory,
 ]
 
-assigner_agent = Agent(
+agent = Agent(
     get_model(),
     name="assigner",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
-assigner_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)

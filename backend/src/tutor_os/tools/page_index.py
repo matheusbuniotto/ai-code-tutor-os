@@ -1,14 +1,6 @@
-"""Port of src/mastra/tools/page_index.ts.
+"""Academic PageIndex: dissects papers into sections, theorems, benchmarks and citations.
 
-DeepTutor-style academic PageIndex & surgical citation engine. Dissects
-academic papers into a structured section index, core theorems, empirical
-benchmark comparisons and surgical citations, plus 1-click L2 audit evidence.
-
-Note: the TS source reads its own WORKSPACE_ROOT from
-TUTOR_WORKSPACE_ROOT/cwd instead of the shared one in storage.ts — an
-inconsistency in the original. This port uses the shared
-tutor_os.storage.WORKSPACE_ROOT so PAPER_INDEX.json lands next to every other
-_meta file instead of wherever the process happened to be launched from.
+Produces L2 audit evidence directly from the literature.
 """
 
 from __future__ import annotations

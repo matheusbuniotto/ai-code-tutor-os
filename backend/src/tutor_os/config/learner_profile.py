@@ -1,8 +1,7 @@
-"""Port of src/mastra/config/learner-profile.ts.
+"""Learner personalization, kept out of agent instructions.
 
-Learner personalization data — kept out of hardcoded agent instructions so
-the same agent code serves any learner without a specific clinical/career
-profile.
+The same agent code serves any learner; `personalize()` resolves the {{...}}
+tokens at call time.
 """
 
 from __future__ import annotations

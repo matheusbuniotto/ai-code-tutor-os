@@ -1,4 +1,4 @@
-"""Port of src/mastra/agents/teacher.ts."""
+"""Teacher: just-in-time conceptual explanation with a physical analogy."""
 
 from __future__ import annotations
 
@@ -40,10 +40,10 @@ TOOL_FUNCTIONS = [
     update_working_memory,
 ]
 
-teacher_agent = Agent(
+agent = Agent(
     get_model(),
     name="teacher",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
-teacher_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)

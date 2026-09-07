@@ -1,4 +1,4 @@
-"""Port of src/mastra/agents/subagents.ts (plannerAgent)."""
+"""Planner: writes the active project's SPEC.md."""
 
 from __future__ import annotations
 
@@ -64,10 +64,10 @@ TOOL_FUNCTIONS = [
     update_working_memory,
 ]
 
-planner_agent = Agent(
+agent = Agent(
     get_model(),
     name="planner",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
-planner_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)

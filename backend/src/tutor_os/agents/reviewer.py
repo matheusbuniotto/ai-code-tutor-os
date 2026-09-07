@@ -1,4 +1,4 @@
-"""Port of src/mastra/agents/reviewer.ts."""
+"""Reviewer: audits the engineering judgment shown in the measure/explain phases."""
 
 from __future__ import annotations
 
@@ -44,10 +44,10 @@ TOOL_FUNCTIONS = [
     update_working_memory,
 ]
 
-reviewer_agent = Agent(
+agent = Agent(
     get_model(),
     name="reviewer",
     instructions=_INSTRUCTIONS,
     tools=[Tool(fn) for fn in TOOL_FUNCTIONS],  # ty: ignore[invalid-argument-type]
 )
-reviewer_agent.instructions(inject_working_memory)
+agent.instructions(inject_working_memory)

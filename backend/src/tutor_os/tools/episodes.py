@@ -1,13 +1,12 @@
-"""Port of src/mastra/tools/episodes.ts."""
+"""Episodic memory: one JSONL record per closed session."""
 
 from __future__ import annotations
 
-import json
 from typing import Literal, TypedDict
 
-from tutor_os.storage import WORKSPACE_ROOT
+from tutor_os.storage import META_DIR, append_jsonl, read_jsonl, write_jsonl
 
-EPISODES_PATH = WORKSPACE_ROOT / "_meta" / "EPISODES.jsonl"
+EPISODES_PATH = META_DIR / "EPISODES.jsonl"
 
 Status = Literal["em-andamento", "concluido", "pausado", "abandonado"]
 
@@ -24,18 +23,11 @@ class Episode(TypedDict):
 
 
 def read_episodes() -> list[Episode]:
-    if not EPISODES_PATH.exists():
-        return []
-    lines = EPISODES_PATH.read_text(encoding="utf-8").splitlines()
-    return [json.loads(line) for line in lines if line.strip()]
+    return read_jsonl(EPISODES_PATH)
 
 
 def write_episodes(episodes: list[Episode]) -> None:
-    EPISODES_PATH.parent.mkdir(parents=True, exist_ok=True)
-    body = "\n".join(json.dumps(e, ensure_ascii=False) for e in episodes)
-    if episodes:
-        body += "\n"
-    EPISODES_PATH.write_text(body, encoding="utf-8")
+    write_jsonl(EPISODES_PATH, episodes)
 
 
 def episodes_append(
@@ -57,13 +49,11 @@ def episodes_append(
         project_slug: Project slug.
         topic: Session topic.
         phase_reached: Phase reached (0-4).
-        status: em-andamento | concluido | pausado | abandonado (kept as the
-            existing EPISODES.jsonl status values — see Status literal above).
+        status: em-andamento | concluido | pausado | abandonado.
         extracted: 1-3 lines: what they actually understood/built.
         connections: connections to other topics; include >=1 named speculative one.
         blockages: observed blockages, if any.
     """
-    episodes = read_episodes()
     episode: Episode = {
         "date": date,
         "projectSlug": project_slug,
@@ -74,10 +64,8 @@ def episodes_append(
         "blockages": blockages,
         "connections": connections,
     }
-    EPISODES_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with EPISODES_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(episode, ensure_ascii=False) + "\n")
-    return {"ok": True, "totalEpisodes": len(episodes) + 1}
+    append_jsonl(EPISODES_PATH, episode)
+    return {"ok": True, "totalEpisodes": len(read_episodes())}
 
 
 def episodes_recent(limit: int = 5, project_slug: str | None = None) -> dict:
@@ -92,8 +80,7 @@ def episodes_recent(limit: int = 5, project_slug: str | None = None) -> dict:
     episodes = read_episodes()
     if project_slug:
         episodes = [e for e in episodes if e["projectSlug"] == project_slug]
-    tail = list(reversed(episodes[-limit:]))
-    return {"episodes": tail}
+    return {"episodes": episodes[-limit:][::-1]}
 
 
 def episodes_delete(
@@ -105,21 +92,23 @@ def episodes_delete(
     """Deletes a specific episode from episodic memory by index, or by date and project_slug."""
     episodes = read_episodes()
     if index is not None and 0 <= index < len(episodes):
-        filtered = [e for i, e in enumerate(episodes) if i != index]
+        remaining = [e for i, e in enumerate(episodes) if i != index]
     elif date and project_slug:
-
-        def keep(e: Episode) -> bool:
-            if e["date"] == date and e["projectSlug"] == project_slug:
-                return bool(topic and e["topic"] != topic)
-            return True
-
-        filtered = [e for e in episodes if keep(e)]
+        remaining = [
+            e
+            for e in episodes
+            if not (
+                e["date"] == date
+                and e["projectSlug"] == project_slug
+                and (not topic or e["topic"] == topic)
+            )
+        ]
     elif topic:
-        filtered = [e for e in episodes if e["topic"] != topic]
+        remaining = [e for e in episodes if e["topic"] != topic]
     else:
-        filtered = episodes
-    write_episodes(filtered)
-    return {"ok": True, "remaining": len(filtered)}
+        remaining = episodes
+    write_episodes(remaining)
+    return {"ok": True, "remaining": len(remaining)}
 
 
 def episodes_clear() -> dict:
@@ -132,17 +121,14 @@ def episodes_search(query: str) -> dict:
     """Searches past episodes by keyword (topic, extracted content, or connections).
 
     Use to recall "I've seen this before" across domains.
+
+    Args:
+        query: Keyword to match against topic, extracted content, and connections.
     """
     q = query.lower()
-    episodes = read_episodes()
     matches = [
-        {
-            "date": e["date"],
-            "projectSlug": e["projectSlug"],
-            "topic": e["topic"],
-            "extracted": e["extracted"],
-        }
-        for e in episodes
+        {k: e[k] for k in ("date", "projectSlug", "topic", "extracted")}
+        for e in read_episodes()
         if q in e["topic"].lower()
         or q in e["extracted"].lower()
         or any(q in c.lower() for c in e["connections"])

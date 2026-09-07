@@ -1,0 +1,45 @@
+# Runs with `prek` (or `pre-commit`). Install the hook once:
+#   prek install
+#
+# Everything here is fast and offline. The LLM evals (`pytest -m llm`) are
+# deliberately excluded — they cost tokens and are non-deterministic.
+default_install_hook_types: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^workspace/
+      - id: end-of-file-fixer
+        exclude: ^workspace/
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: check-yaml
+      - id: check-toml
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --project backend ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --project backend ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: pytest
+        name: pytest (regression suite)
+        entry: uv run --project backend pytest backend/tests -q
+        language: system
+        pass_filenames: false
+        files: ^backend/
+        require_serial: true

@@ -1,12 +1,7 @@
-"""Port of src/mastra/workflows/session.ts.
+"""Deterministic phase state machine for the 4 Inverted Pyramid phases.
 
-Deterministic phase-tracking state machine for the 4 phases of the Inverted
-Pyramid, with human-in-the-loop gates. No Mastra Workflow-with-suspend
-primitive exists in pydantic-ai, so this is a small stateless state machine
-built directly on `workspace_init`/`phase_set` (`tools/workspace.py`), which
-already persist the exact same SPEC.md/STATE.md shape TS's `ensureProject`/
-`writePhase` do — no new persistence mechanism needed, just the sequencing
-logic TS got from Mastra's step runtime.
+Stateless: sequencing only, persisting through workspace_init/phase_set rather
+than owning any storage of its own.
 """
 
 from __future__ import annotations
@@ -110,20 +105,14 @@ def session_start(project_slug: str, title: str, objective: str, stack: str) -> 
 def session_advance(project_slug: str, phase: int, passed: bool, note: str | None = None) -> dict:
     """Advances (or reaffirms) the human gate for a session phase.
 
-    If `passed` is False, returns the current phase's suspended gate again
-    without changing STATE.md — the same semantics as Mastra's `suspend()`,
-    which only halts execution and persists nothing.
+    If `passed` is False, returns the current phase's gate again and persists
+    nothing.
 
-    If `passed` is True, marks the phase as completed and:
-    - if `phase` < 4: immediately returns the suspended gate for the NEXT
-      phase (equivalent to Mastra's `.then(phaseNStep)` chaining: resuming
-      one phase goes straight into the next step's execution, which
-      suspends again since it doesn't have `resumeData` yet).
-    - if `phase` == 4: closes the session — replicates the TS `finishStep`
-      behavior, which runs unconditionally after phase 4's gate and
-      REWRITES the status from "concluido" back to "em-andamento" with a
-      closing note, signaling that the 4 code phases are ready but the
-      session only truly closes once the Harvester runs.
+    If `passed` is True, marks the phase completed and:
+    - phase < 4: returns the next phase's gate straight away.
+    - phase == 4: sets the status back to "em-andamento" with a closing note.
+      The four code phases are done, but the session only truly closes once
+      the Harvester has run.
 
     Args:
         project_slug: project slug.

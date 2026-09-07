@@ -1,7 +1,7 @@
 [project]
 name = "tutor-os-py"
 version = "0.1.0"
-description = "Tutor OS backend — pydantic-ai 2.0 port of src/mastra + src/server.ts"
+description = "Tutor OS backend — agents, tools, and memory over FastAPI"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Matheus Buniotto" }]
@@ -21,7 +21,11 @@ Repository = "https://github.com/matheusbuniotto/aio-learn"
 tutor-os-py = "tutor_os:main"
 
 [dependency-groups]
-dev = ["ruff>=0.16.6"]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.6",
+]
 
 [tool.uv.build-backend]
 module-name = "tutor_os"
@@ -29,6 +33,14 @@ module-name = "tutor_os"
 [build-system]
 requires = ["uv_build>=0.11.17,<0.12.0"]
 build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# `llm` evals call a real model gateway: opt in with `uv run pytest -m llm`.
+addopts = "-m 'not llm' --strict-markers"
+markers = [
+    "llm: requires a real model gateway (costs tokens, non-deterministic)",
+]
 
 [tool.ruff]
 line-length = 100
@@ -75,10 +87,8 @@ max-nested-blocks = 4
 # not internal complexity. PLR0913 stays enforced everywhere else.
 "src/tutor_os/tools/*.py" = ["too-many-arguments"]
 
-# Pre-existing complexity/magic-value debt, accepted backlog (see
-# backend/NEXT-PHASES.md's "Migration gotchas" section) — fix opportunistically
-# if a future change touches these functions for real, rather than as a
-# drive-by refactor here.
+# Accepted complexity backlog — fix opportunistically when a change touches
+# these functions for real, rather than as a drive-by refactor.
 "src/tutor_os/tools/research.py" = [
     "complex-structure",
     "too-many-branches",
@@ -86,13 +96,12 @@ max-nested-blocks = 4
     "magic-value-comparison",
 ]
 "src/tutor_os/tools/page_index.py" = ["complex-structure", "too-many-nested-blocks"]
-"src/tutor_os/tools/meta.py" = [
-    "complex-structure",
-    "too-many-branches",
-    "too-many-statements",
-]
-"src/tutor_os/tools/gate.py" = ["magic-value-comparison"]
+
+# Asserting on a literal status code or count IS the test — naming those
+# constants would just move the expected value out of the assertion.
+"tests/**" = ["magic-value-comparison"]
+# conftest.py must set TUTOR_OS_ROOT before anything imports tutor_os.
+"tests/conftest.py" = ["module-import-not-at-top-of-file"]
 
 [tool.ty.rules]
-# Start permissive; tighten once the full agent roster is ported.
 possibly-missing-attribute = "warn"
