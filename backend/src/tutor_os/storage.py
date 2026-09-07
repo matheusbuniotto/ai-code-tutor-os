@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -19,7 +20,19 @@ logger = logging.getLogger("tutor_os")
 PROJECT_ROOT = Path(os.environ.get("TUTOR_OS_ROOT") or Path(__file__).resolve().parents[3])
 WORKSPACE_ROOT = PROJECT_ROOT / "workspace"
 META_DIR = WORKSPACE_ROOT / "_meta"
+META_EXAMPLE_DIR = WORKSPACE_ROOT / "_meta_example"
 DB_PATH = PROJECT_ROOT / "tutor-os-py.db"
+
+
+def seed_meta_dir() -> None:
+    """First run on a fresh clone: workspace/_meta is gitignored (personal
+    progress data), so seed it from the committed onboarding template.
+    """
+    if not META_DIR.exists() and META_EXAMPLE_DIR.exists():
+        shutil.copytree(META_EXAMPLE_DIR, META_DIR)
+
+
+seed_meta_dir()
 
 
 def safe_path(base: Path, rel_path: str = "") -> Path:

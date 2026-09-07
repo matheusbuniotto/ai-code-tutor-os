@@ -746,12 +746,20 @@ async def thread_export(threadId: str = "session-principal") -> Any:
 # ---------------------------------------------------------------------------
 
 
+def _os_read_or_blank(path: str) -> str:
+    """Like os_read, but for UI display: a missing file is just empty,
+    not the "(file does not exist: ...)" sentinel meant for agent tool calls.
+    """
+    content = os_read(path)["content"]
+    return "" if content.startswith("(file does not exist:") else content
+
+
 @app.get("/api/workspace")
 async def api_workspace() -> dict:
     return {
         **workspace_list(),
-        "now": os_read("NOW.md")["content"],
-        "inbox": os_read("INBOX.md")["content"],
+        "now": _os_read_or_blank("NOW.md"),
+        "inbox": _os_read_or_blank("INBOX.md"),
     }
 
 
