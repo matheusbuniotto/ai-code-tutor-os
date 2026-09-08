@@ -79,32 +79,50 @@ def episodes_recent(limit: int = 5, project_slug: str | None = None) -> dict:
     """
     episodes = read_episodes()
     if project_slug:
-        episodes = [e for e in episodes if e["projectSlug"] == project_slug]
+        episodes = [e for e in episodes if e.get("projectSlug") == project_slug]
     return {"episodes": episodes[-limit:][::-1]}
 
 
 def episodes_delete(
-    index: int | None = None,
+    index: int | str | None = None,
     date: str | None = None,
     project_slug: str | None = None,
     topic: str | None = None,
 ) -> dict:
     """Deletes a specific episode from episodic memory by index, or by date and project_slug."""
     episodes = read_episodes()
-    if index is not None and 0 <= index < len(episodes):
-        remaining = [e for i, e in enumerate(episodes) if i != index]
+    idx: int | None = None
+    if index is not None:
+        try:
+            idx = int(index)
+        except (ValueError, TypeError):
+            idx = None
+
+    if idx is not None and 0 <= idx < len(episodes):
+        remaining = [e for i, e in enumerate(episodes) if i != idx]
     elif date and project_slug:
         remaining = [
             e
             for e in episodes
             if not (
-                e["date"] == date
-                and e["projectSlug"] == project_slug
-                and (not topic or e["topic"] == topic)
+                e.get("date") == date
+                and e.get("projectSlug") == project_slug
+                and (
+                    not topic
+                    or topic == e.get("topic")
+                    or (e.get("topic") and (topic in e["topic"] or e["topic"] in topic))
+                )
             )
         ]
     elif topic:
-        remaining = [e for e in episodes if e["topic"] != topic]
+        remaining = [
+            e
+            for e in episodes
+            if not (
+                topic == e.get("topic")
+                or (e.get("topic") and (topic in e["topic"] or e["topic"] in topic))
+            )
+        ]
     else:
         remaining = episodes
     write_episodes(remaining)

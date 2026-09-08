@@ -34,7 +34,15 @@ class CapabilityArc(TypedDict, total=False):
     updatedAt: str
 
 
-DEFAULT_ARCS: list[CapabilityArc] = [
+# A fresh workspace starts with zero arcs — the Tutor/Architect creates them
+# organically as the learner picks projects, so a made-up default roadmap
+# doesn't force a domain (backend, ML, frontend, ...) on someone it doesn't fit.
+DEFAULT_ARCS: list[CapabilityArc] = []
+
+# Optional seed a learner can opt into (onboarding wizard "use example arcs"),
+# kept only as a worked example of what a filled-in roadmap looks like — not
+# assumed to match the current learner's domain.
+EXAMPLE_STARTER_ARCS: list[CapabilityArc] = [
     {
         "id": "arc1_behavior",
         "title": "Arc 1: Investigation and Judgment of Software Behavior",
@@ -145,6 +153,19 @@ def save_arcs_data(arcs: list[CapabilityArc]) -> None:
 def arcs_list() -> dict:
     """Returns all of the learner's custom and planned Capability Arcs, with goals and verified evidence."""
     return {"arcs": read_arcs_data()}
+
+
+def seed_example_arcs() -> dict:
+    """Seeds the optional example Capability Arcs (onboarding wizard opt-in only).
+
+    No-op if arcs already exist, so it never clobbers real progress.
+    """
+    existing = read_arcs_data()
+    if existing:
+        return {"ok": False, "reason": "arcs_already_exist", "arcs": existing}
+    seeded = deepcopy(EXAMPLE_STARTER_ARCS)
+    save_arcs_data(seeded)
+    return {"ok": True, "arcs": seeded}
 
 
 def arc_create_or_update(

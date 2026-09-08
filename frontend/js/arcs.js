@@ -15,7 +15,7 @@ export async function loadArcsData() {
   const progressBar = document.getElementById('arcs-progress-bar') || document.getElementById('curriculum-progress-bar');
 
   try {
-    const res = await fetch(`${API_BASE}/api/arcs`);
+    const res = await fetch(`${API_BASE}/api/arcs`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     State.cachedArcs = data.arcs || [];
@@ -80,7 +80,7 @@ export function renderArcsList() {
             <button onclick="openEditArcModal('${escapeHtml(arc.id)}')" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Edit Arc">
               <i data-lucide="edit-3" class="w-3.5 h-3.5 pointer-events-none"></i>
             </button>
-            <button onclick="promptDeleteArc('${escapeHtml(arc.id)}', '${escapeHtml(arc.title || arc.id)}')" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-red-400 cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Delete Arc">
+            <button onclick="promptDeleteArc('${escapeHtml(arc.id)}')" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-red-400 cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Delete Arc">
               <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
             </button>
             <button onclick="promptAddCapability('${escapeHtml(arc.id)}')" class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer app-no-drag" data-tauri-drag-region="false" title="Add Judgment Goal">
@@ -185,11 +185,13 @@ export async function removeCapability(arcId, capId) {
   await saveAllArcs();
 }
 
-export function promptDeleteArc(arcId, arcTitle) {
-  State.pendingDeleteTarget = { type: 'arc', arcId, title: arcTitle || arcId };
+export function promptDeleteArc(arcId, fallbackTitle) {
+  const arc = (State.cachedArcs || []).find(a => a.id === arcId);
+  const arcTitle = arc?.title || fallbackTitle || arcId;
+  State.pendingDeleteTarget = { type: 'arc', arcId, title: arcTitle };
   document.getElementById('delete-modal-title').textContent = "Delete Capability Arc";
   document.getElementById('delete-modal-desc').textContent = "Are you sure you want to permanently delete the following capability arc?";
-  document.getElementById('delete-target-label').textContent = `Arc: "${arcTitle || arcId}" (${arcId})`;
+  document.getElementById('delete-target-label').textContent = `Arc: "${arcTitle}" (${arcId})`;
   document.getElementById('delete-modal-subdesc').textContent = "All goals, challenges, and evidence linked to this arc will be permanently removed.";
   document.getElementById('delete-archive-option-btn').classList.add('hidden');
   document.getElementById('delete-confirm-modal').classList.remove('hidden');

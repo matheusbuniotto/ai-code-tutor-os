@@ -6,6 +6,7 @@
 import { API_BASE, State } from './state.js';
 import { escapeHtml } from './utils.js';
 import { createNewThread, loadThreadsList } from './threads.js';
+import { loadArcsData } from './arcs.js';
 
 export function setMemoryFilter(filter) {
   State.activeMemoryFilter = filter;
@@ -16,9 +17,9 @@ export async function loadMemoryData() {
   const container = document.getElementById('memory-content-area');
   try {
     const [graphRes, memRes, expRes] = await Promise.all([
-      fetch(`${API_BASE}/api/memory/graph`).catch(() => null),
-      fetch(`${API_BASE}/api/memory`).catch(() => null),
-      fetch(`${API_BASE}/api/experiments`).catch(() => null)
+      fetch(`${API_BASE}/api/memory/graph`, { cache: 'no-store' }).catch(() => null),
+      fetch(`${API_BASE}/api/memory`, { cache: 'no-store' }).catch(() => null),
+      fetch(`${API_BASE}/api/experiments`, { cache: 'no-store' }).catch(() => null)
     ]);
 
     State.cachedMemoryGraph = graphRes && graphRes.ok ? await graphRes.json() : null;
@@ -111,7 +112,7 @@ export function renderMemoryContent() {
                   <button onclick="editEvidence('${escapeHtml(ev.id)}')" title="Edit Evidence" class="p-0.5 text-zinc-400 hover:text-[var(--accent)] transition-colors cursor-pointer">
                     <i data-lucide="edit-3" class="w-3 h-3"></i>
                   </button>
-                  <button onclick="promptDeleteEvidence('${escapeHtml(ev.id)}', '${escapeHtml(ev.claim)}')" title="Delete Evidence" class="p-0.5 text-zinc-400 hover:text-red-400 transition-colors cursor-pointer">
+                  <button onclick="promptDeleteEvidence('${escapeHtml(ev.id)}')" title="Delete Evidence" class="p-0.5 text-zinc-400 hover:text-red-400 transition-colors cursor-pointer">
                     <i data-lucide="trash-2" class="w-3 h-3"></i>
                   </button>
                 </div>
@@ -167,7 +168,7 @@ export function renderMemoryContent() {
                 </span>
                 <div class="flex items-center gap-1.5">
                   <span class="text-[10px] px-1.5 py-0.2 rounded font-mono border theme-border" style="background-color: var(--bg-card-hover); color: var(--text-muted);">${escapeHtml(tr.id)}</span>
-                  <button onclick="promptDeleteEpisode(${tr.index}, '${escapeHtml(tr.timestamp || '')}', '${escapeHtml(tr.projectSlug || '')}', '${escapeHtml(tr.topic || tr.summary || '')}')" title="Delete Trace Record" class="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-red-400 transition-opacity cursor-pointer">
+                  <button onclick="promptDeleteEpisode(${tr.index})" title="Delete Trace Record" class="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-red-400 transition-opacity cursor-pointer">
                     <i data-lucide="trash-2" class="w-3 h-3"></i>
                   </button>
                 </div>
@@ -203,7 +204,7 @@ export function renderMemoryContent() {
                   <span class="font-bold text-[11px] flex-1" style="color: var(--text-main);">${escapeHtml(exp.title)}</span>
                   <div class="flex items-center gap-1.5 shrink-0">
                     <span class="text-[9px] font-mono px-1.5 py-0.2 rounded uppercase border font-bold" style="${isActive ? 'background-color: var(--accent-subtle); color: var(--accent); border-color: var(--accent);' : isKept ? 'background-color: rgba(16, 185, 129, 0.15); color: #34d399; border-color: #059669;' : 'background-color: var(--bg-card-hover); color: var(--text-dim); border-color: var(--border-subtle);'}">${isKept ? '✓ Mantido' : isDropped ? '✗ Descartado' : '⚡ Ativo'}</span>
-                    <button onclick="promptDeleteExperiment('${escapeHtml(exp.id)}', '${escapeHtml(exp.title)}')" title="Delete Experiment" class="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-red-400 transition-opacity cursor-pointer">
+                    <button onclick="promptDeleteExperiment('${escapeHtml(exp.id)}')" title="Delete Experiment" class="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-red-400 transition-opacity cursor-pointer">
                       <i data-lucide="trash-2" class="w-3 h-3"></i>
                     </button>
                   </div>
@@ -263,7 +264,7 @@ export function renderMemoryContent() {
                 <button onclick="editObservation(${idx})" title="Edit Observation" class="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-[var(--accent)] transition-opacity cursor-pointer">
                   <i data-lucide="edit-3" class="w-3 h-3"></i>
                 </button>
-                <button onclick="promptDeleteObservation(${idx}, '${escapeHtml(o.tag)}', '${escapeHtml(o.text)}')" title="Delete Observation" class="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-red-400 transition-opacity cursor-pointer">
+                <button onclick="promptDeleteObservation(${idx})" title="Delete Observation" class="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-red-400 transition-opacity cursor-pointer">
                   <i data-lucide="trash-2" class="w-3 h-3"></i>
                 </button>
               </div>
@@ -353,7 +354,10 @@ export async function handleCreateEvidenceSubmit(e) {
   }
 }
 
-export function promptDeleteEvidence(id, claim) {
+export function promptDeleteEvidence(id, fallbackClaim) {
+  const evidences = State.cachedMemoryGraph?.l2 || [];
+  const ev = evidences.find(e => e.id === id);
+  const claim = ev?.claim || fallbackClaim || '';
   State.pendingDeleteTarget = { type: 'evidence', id };
   document.getElementById('delete-modal-title').textContent = "Delete Auditable L2 Fact";
   document.getElementById('delete-modal-desc').textContent = "Are you sure you want to delete this auditable evidence?";
@@ -418,8 +422,12 @@ export async function handleCreateObsSubmit(e) {
   }
 }
 
-export function promptDeleteObservation(index, tag, text) {
-  State.pendingDeleteTarget = { type: 'observation', index };
+export function promptDeleteObservation(index, fallbackTag, fallbackText) {
+  const mem = State.cachedMemoryData || {};
+  const obs = (mem.observations || [])[index];
+  const tag = obs?.tag || fallbackTag || 'Observation';
+  const text = obs?.text || fallbackText || '';
+  State.pendingDeleteTarget = { type: 'observation', index, tag, text };
   document.getElementById('delete-modal-title').textContent = "Delete Semantic Observation";
   document.getElementById('delete-modal-desc').textContent = "Are you sure you want to remove this observation from the agent's memory?";
   document.getElementById('delete-target-label').textContent = `[${tag}]: ${(text || '').slice(0, 80)}`;
@@ -431,11 +439,16 @@ export function promptDeleteObservation(index, tag, text) {
 // =========================================================================
 // EPISODIC TIMELINE & TRACES HANDLERS (Delete, Clear)
 // =========================================================================
-export function promptDeleteEpisode(index, date, projectSlug, topic) {
+export function promptDeleteEpisode(index, fallbackDate, fallbackSlug, fallbackTopic) {
+  const traces = State.cachedMemoryGraph?.l1 || [];
+  const tr = traces.find(t => t.index === index) || traces[index];
+  const date = tr?.timestamp || fallbackDate || 'Today';
+  const projectSlug = tr?.projectSlug || fallbackSlug || 'OS';
+  const topic = tr?.topic || fallbackTopic || '';
   State.pendingDeleteTarget = { type: 'episode', index, date, projectSlug, topic };
   document.getElementById('delete-modal-title').textContent = "Delete L1 Episode Record";
   document.getElementById('delete-modal-desc').textContent = "Are you sure you want to delete this session from episodic memory?";
-  document.getElementById('delete-target-label').textContent = `${date || 'Today'} - ${projectSlug || 'OS'}: ${(topic || '').slice(0, 60)}`;
+  document.getElementById('delete-target-label').textContent = `${date} - ${projectSlug}: ${(topic || tr?.summary || '').slice(0, 60)}`;
   document.getElementById('delete-modal-subdesc').textContent = "The raw trace record will be removed from EPISODES.jsonl.";
   document.getElementById('delete-archive-option-btn').classList.add('hidden');
   document.getElementById('delete-confirm-modal').classList.remove('hidden');
@@ -455,11 +468,22 @@ export function promptClearAllEpisodes() {
 // PURGE MEMORY HANDLER (Hard Reset / Start Fresh)
 // =========================================================================
 export function promptPurgeMemory() {
-  document.getElementById('purge-memory-modal').classList.remove('hidden');
+  State.pendingDeleteTarget = { type: 'memory-purge' };
+  document.getElementById('delete-modal-title').textContent = "Hard Memory Reset (Purge All)";
+  document.getElementById('delete-modal-desc').textContent = "Purge all episodic history, reset observations, and clear conversations?";
+  document.getElementById('delete-target-label').textContent = "EPISODES.jsonl, OBSERVATIONS.json, and local chat messages";
+  document.getElementById('delete-modal-subdesc').textContent = "This clears all L1 traces, resets semantic observations to baseline calibration, and wipes all database chat history to eliminate prior context leakage. The tutor will start 100% clean.";
+  document.getElementById('delete-archive-option-btn').classList.add('hidden');
+  const actionBtn = document.getElementById('delete-confirm-action-btn');
+  actionBtn.classList.remove('hidden');
+  actionBtn.innerHTML = `<i data-lucide="skull" class="w-3.5 h-3.5 pointer-events-none"></i><span>Purge All Memory</span>`;
+  document.getElementById('delete-confirm-modal').classList.remove('hidden');
+  lucide.createIcons();
 }
 
 export function closePurgeMemoryModal() {
-  document.getElementById('purge-memory-modal').classList.add('hidden');
+  const modal = document.getElementById('purge-memory-modal');
+  if (modal) modal.classList.add('hidden');
 }
 
 export async function executeMemoryPurge() {
@@ -469,18 +493,39 @@ export async function executeMemoryPurge() {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     closePurgeMemoryModal();
-    createNewThread();
-    await loadMemoryData();
-    await loadThreadsList();
+    const deleteModal = document.getElementById('delete-confirm-modal');
+    if (deleteModal) deleteModal.classList.add('hidden');
+    localStorage.removeItem('tutor_active_thread');
+    const messagesContainer = document.getElementById('messages-container');
+    if (messagesContainer) {
+      messagesContainer.innerHTML = '';
+    }
+    await createNewThread();
+    await Promise.all([loadMemoryData(), loadArcsData(), loadThreadsList()]);
+    const statusEl = document.getElementById('workspace-data-status');
+    if (statusEl) {
+      statusEl.textContent = '✓ Memory purged clean';
+      statusEl.classList.remove('hidden', 'text-red-400');
+      statusEl.classList.add('text-emerald-400');
+      setTimeout(() => statusEl.classList.add('hidden'), 5000);
+    }
   } catch (err) {
-    alert(`Error purging memory: ${err.message}`);
+    console.error('Error purging memory:', err);
+    const errEl = document.getElementById('delete-modal-error');
+    if (errEl) {
+      errEl.textContent = `Error: ${err.message}`;
+      errEl.classList.remove('hidden');
+    }
   }
 }
 
 // =========================================================================
 // TINY EXPERIMENTS HANDLERS
 // =========================================================================
-export function promptDeleteExperiment(expId, title) {
+export function promptDeleteExperiment(expId, fallbackTitle) {
+  const expData = State.cachedExpData || {};
+  const exp = (expData.experiments || []).find(e => e.id === expId);
+  const title = exp?.title || fallbackTitle || '';
   State.pendingDeleteTarget = { type: 'experiment', id: expId };
   document.getElementById('delete-modal-title').textContent = "Delete Experiment";
   document.getElementById('delete-modal-desc').textContent = "Are you sure you want to delete this experiment?";

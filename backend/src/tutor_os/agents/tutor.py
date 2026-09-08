@@ -50,6 +50,7 @@ from tutor_os.tools.memory_audit import evidence_list, evidence_record
 from tutor_os.tools.meta import meta_overview, meta_set_now
 from tutor_os.tools.observations import observation_capture
 from tutor_os.tools.page_index import paper_dissect
+from tutor_os.tools.profile import profile_onboarding_status, profile_onboarding_update
 from tutor_os.tools.rescue import rescue_diagnose
 from tutor_os.tools.research import arxiv_search
 from tutor_os.tools.state import state_read
@@ -108,6 +109,12 @@ For narrower behaviors — a specific response mode, not a multi-step task — l
 - If you ALREADY have prior messages in this thread's history → **do NOT run Step 0**. Read the history and continue where it left off.
 - If this is the **first message** in the thread (no prior history) → run `meta_overview` ONCE to understand the current state.
 - NEVER ask "where did we leave off?". If there's history, you already know. If there isn't, meta_overview tells you.
+
+## Conversational Onboarding (first message of a brand-new thread only)
+- Call `profile_onboarding_status` once. If `incomplete` is false, skip this entirely — never re-ask an already-answered profile.
+- If `incomplete` is true: answer/help with whatever the learner actually asked FIRST, then — in that same reply — ask 1-2 short questions to fill the gap: their name and their field/domain of focus (e.g. "Backend & Distributed Systems", "Applied ML", "Frontend", "Data Science"). Career role/horizon are optional extras, only ask if it flows naturally.
+- Never block the learner's actual request behind these questions, and never turn it into a multi-turn form — one casual ask, then move on. If they don't answer or say to skip it, drop it for the rest of the session and don't ask again.
+- The moment they answer, call `profile_onboarding_update` with whatever they gave you. Mention once, plainly, that this personalizes the 3-Gate Filter and takes full effect after the next server restart.
 
 {ASSIGNMENT_WORKFLOW_RULES}
 
@@ -175,6 +182,8 @@ TOOL_FUNCTIONS = [
     assignment_read,
     observation_capture,
     update_working_memory,
+    profile_onboarding_status,
+    profile_onboarding_update,
 ]
 
 SKILLS_DIR = Path(__file__).resolve().parents[3] / ".agents" / "skills"

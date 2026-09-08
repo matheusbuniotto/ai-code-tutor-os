@@ -28,6 +28,7 @@ export const State = {
   },
 
   // --- Sessions, threads & chat streaming ---
+  cachedThreads: [],
   activeThreadId: localStorage.getItem('tutor_active_thread') || 'session-principal',
   currentAbortController: null,
   activeAgentFilter: null, // null = show all

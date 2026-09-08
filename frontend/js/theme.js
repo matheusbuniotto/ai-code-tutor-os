@@ -376,6 +376,8 @@ export function exportCurrentThemeCSS() {
   });
 }
 
+export const setCustomAccent = updateCustomAccentFromPicker;
+
 // --- inline-handler surface (onclick/onchange="..." targets) ---
 window.changeFontSize = changeFontSize;
 window.setFontSize = setFontSize;
@@ -384,5 +386,6 @@ window.filterThemes = filterThemes;
 window.toggleCustomThemeStudio = toggleCustomThemeStudio;
 window.setCustomBaseTone = setCustomBaseTone;
 window.updateCustomAccentFromPicker = updateCustomAccentFromPicker;
+window.setCustomAccent = updateCustomAccentFromPicker;
 window.saveAndApplyCustomTheme = saveAndApplyCustomTheme;
 window.exportCurrentThemeCSS = exportCurrentThemeCSS;

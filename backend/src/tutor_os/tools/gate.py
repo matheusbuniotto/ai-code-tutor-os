@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Literal
 
+from tutor_os.config.learner_profile import personalize
 from tutor_os.storage import META_DIR, append_jsonl
 
 GATE_HISTORY_PATH = META_DIR / "GATE_HISTORY.jsonl"
@@ -16,6 +17,11 @@ _PERSONAL_GATES_TO_PASS = 3
 
 Context = Literal["work", "personal_study"]
 Verdict = Literal["GO", "DELEGATE_AUTOMATE_ASYNC", "POSTPONE_RECORD"]
+
+_ANTI_IMPOSTOR_ANCHOR = personalize(
+    "Reality anchor: your cognitive profile learns invariants faster than average. "
+    "Your asymmetric advantage is synthesizing {{DOMAIN}}, data, and business ROI — not accumulating isolated syntax."
+)
 
 
 def gate_check(
@@ -36,15 +42,15 @@ def gate_check(
     rationale, and an anti-impostor anchor grounded in concrete evidence when applicable.
 
     Args:
-        context: Context of the demand: corporate work (Tech Lead) or personal study/lab.
+        context: Context of the demand: corporate work or personal study/lab.
         topic: Theme or idea being evaluated.
-        work_high_abstraction: Work Gate 1: AI architecture, data schema, reliability, or evaluation?
+        work_high_abstraction: Work Gate 1: high-leverage {{DOMAIN}} work (architecture, data schema, reliability, or evaluation)?
         work_squad_multiplier: Work Gate 2: becomes a playbook, reusable template, or CI/CD guardrail?
-        work_career_moat: Work Gate 3: produces a public asset (case study/RFC) with demand through 2027-2030?
+        work_career_moat: Work Gate 3: produces a public asset (case study/RFC) with demand through {{CAREER_HORIZON}}?
         personal_cluster_deepening: Study Gate 1: deepens an existing cluster/project (not a from-scratch novelty)?
         personal_tracer_bullet_fit: Study Gate 2: fits in an end-to-end tracer bullet within one focused session?
         personal_topology_before_syntax: Study Gate 3: is the first step mapping invariants on paper?
-        personal_demand_and_no_abandon_trap: Study Gate 4: high/stable demand through 2027-2030, with no history of similar abandonment?
+        personal_demand_and_no_abandon_trap: Study Gate 4: high/stable demand in {{DOMAIN}} through {{CAREER_HORIZON}}, with no history of similar abandonment?
         impostor_doubt_expressed: Competency doubt expressed by the user, if any.
     """
     gates_summary: dict[str, bool] = {}
@@ -74,12 +80,7 @@ def gate_check(
             verdict = "POSTPONE_RECORD"
             rationale = f"Only passed {passed}/4 gates. Note it in INBOX/ideas and postpone to protect focus."
 
-    anti_impostor_anchor = (
-        "Reality anchor: your cognitive profile learns invariants faster than average. "
-        "Your asymmetric advantage is synthesizing AI architecture, data, and business ROI — not accumulating isolated syntax."
-        if impostor_doubt_expressed
-        else None
-    )
+    anti_impostor_anchor = _ANTI_IMPOSTOR_ANCHOR if impostor_doubt_expressed else None
 
     verdict_record = {
         "topic": topic,
@@ -91,3 +92,6 @@ def gate_check(
     append_jsonl(GATE_HISTORY_PATH, {"timestamp": datetime.now(UTC).isoformat(), **verdict_record})
 
     return {**verdict_record, "antiImpostorAnchor": anti_impostor_anchor, "recorded": True}
+
+
+gate_check.__doc__ = personalize(gate_check.__doc__)

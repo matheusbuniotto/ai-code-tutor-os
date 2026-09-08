@@ -1,14 +1,15 @@
 // =========================================================================
-// SHARED DELETE / ARCHIVE CONFIRMATION MODAL DISPATCHER
+// SHARED DELETE / ARCHIVE / RESET CONFIRMATION MODAL DISPATCHER
 // =========================================================================
 // The `prompt*` functions that *open* this modal stay in their own domain
 // modules (they only fill in DOM text + State.pendingDeleteTarget). This
 // module owns the one place that reads pendingDeleteTarget and fans out to
-// every domain's delete endpoint — genuinely cross-cutting, so it lives on
+// every domain's delete/reset endpoint — genuinely cross-cutting, so it lives on
 // its own instead of being buried inside workspace.js as it used to be.
 
 import { API_BASE, State } from './state.js';
-import { loadThreadsList, switchThread } from './threads.js';
+import { clearOnboardingDismissed } from './onboarding.js';
+import { createNewThread, loadThreadsList, switchThread } from './threads.js';
 import { loadArcsData } from './arcs.js';
 import { loadMemoryData } from './memory.js';
 import { closeFileModal, executeArchive, loadWorkspaceData } from './workspace.js';
@@ -17,16 +18,95 @@ export async function executeArchiveFromModal() {
   if (!State.pendingDeleteTarget.slug) return;
   const slug = State.pendingDeleteTarget.slug;
   closeDeleteConfirmModal();
+  closeFileModal();
   await executeArchive(slug, "archive");
 }
 
 export async function executePendingDelete() {
   const btn = document.getElementById('delete-confirm-action-btn');
   btn.disabled = true;
-  btn.textContent = "Excluindo...";
+  const targetType = State.pendingDeleteTarget?.type;
+  const isReset = targetType === 'workspace-reset';
+  const isImport = targetType === 'workspace-import';
+  const isPurge = targetType === 'memory-purge';
+  const isClear = targetType === 'thread-clear' || targetType === 'episodes-clear';
+  btn.textContent = isReset ? "Resetting..." : isImport ? "Importing..." : isPurge ? "Purging..." : isClear ? "Clearing..." : "Deleting...";
+
+  const errEl = document.getElementById('delete-modal-error');
+  if (errEl) {
+    errEl.textContent = '';
+    errEl.classList.add('hidden');
+  }
 
   try {
-    if (State.pendingDeleteTarget.type === 'thread') {
+    if (targetType === 'workspace-reset') {
+      const res = await fetch(`${API_BASE}/api/workspace/reset`, { method: "POST" });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.reason || 'Reset failed on backend');
+      localStorage.removeItem('tutor_active_thread');
+      localStorage.removeItem('tutor_tree_collapsed');
+      clearOnboardingDismissed();
+      closeDeleteConfirmModal();
+      window.location.reload();
+      return;
+    }
+
+    if (targetType === 'workspace-import') {
+      const file = State.pendingDeleteTarget.file;
+      if (!file) throw new Error("No backup archive selected");
+      const res = await fetch(`${API_BASE}/api/workspace/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/zip" },
+        body: await file.arrayBuffer(),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.reason || 'Import failed on backend');
+      localStorage.removeItem('tutor_active_thread');
+      localStorage.removeItem('tutor_tree_collapsed');
+      clearOnboardingDismissed();
+      closeDeleteConfirmModal();
+      window.location.reload();
+      return;
+    }
+
+    if (targetType === 'thread-clear') {
+      const threadId = State.pendingDeleteTarget.threadId;
+      const res = await fetch(`${API_BASE}/api/thread/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      closeDeleteConfirmModal();
+      await switchThread(threadId);
+      await loadThreadsList();
+      return;
+    }
+
+    if (targetType === 'memory-purge') {
+      const res = await fetch(`${API_BASE}/api/memory/purge`, {
+        method: "POST"
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      closeDeleteConfirmModal();
+      localStorage.removeItem('tutor_active_thread');
+      const messagesContainer = document.getElementById('messages-container');
+      if (messagesContainer) {
+        messagesContainer.innerHTML = '';
+      }
+      await createNewThread();
+      await Promise.all([loadMemoryData(), loadArcsData(), loadThreadsList()]);
+      const statusEl = document.getElementById('workspace-data-status');
+      if (statusEl) {
+        statusEl.textContent = '✓ Memory purged clean';
+        statusEl.classList.remove('hidden', 'text-red-400');
+        statusEl.classList.add('text-emerald-400');
+        setTimeout(() => statusEl.classList.add('hidden'), 5000);
+      }
+      return;
+    }
+
+    if (targetType === 'thread') {
       const threadId = State.pendingDeleteTarget.threadId;
       const res = await fetch(`${API_BASE}/api/thread/delete`, {
         method: "POST",
@@ -34,17 +114,17 @@ export async function executePendingDelete() {
         body: JSON.stringify({ threadId })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      if (State.activeThreadId === threadId) {
-        State.activeThreadId = 'session-principal';
-        localStorage.setItem('tutor_active_thread', State.activeThreadId);
-      }
       closeDeleteConfirmModal();
       await loadThreadsList();
-      switchThread(State.activeThreadId);
+      if (State.activeThreadId === threadId) {
+        const remaining = (State.cachedThreads || []).find(t => t.id !== threadId);
+        const nextThreadId = remaining ? remaining.id : 'session-principal';
+        switchThread(nextThreadId);
+      }
       return;
     }
 
-    if (State.pendingDeleteTarget.type === 'arc') {
+    if (targetType === 'arc') {
       const arcId = State.pendingDeleteTarget.arcId;
       const res = await fetch(`${API_BASE}/api/arc/delete`, {
         method: "POST",
@@ -53,11 +133,11 @@ export async function executePendingDelete() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       closeDeleteConfirmModal();
-      await loadArcsData();
+      await Promise.all([loadArcsData(), loadMemoryData()]);
       return;
     }
 
-    if (State.pendingDeleteTarget.type === 'evidence') {
+    if (targetType === 'evidence') {
       const id = State.pendingDeleteTarget.id;
       const res = await fetch(`${API_BASE}/api/memory/evidence/delete`, {
         method: "POST",
@@ -66,16 +146,16 @@ export async function executePendingDelete() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       closeDeleteConfirmModal();
-      await loadMemoryData();
+      await Promise.all([loadMemoryData(), loadArcsData()]);
       return;
     }
 
-    if (State.pendingDeleteTarget.type === 'observation') {
-      const index = State.pendingDeleteTarget.index;
+    if (targetType === 'observation') {
+      const { index, tag, text } = State.pendingDeleteTarget;
       const res = await fetch(`${API_BASE}/api/memory/observation/delete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ index })
+        body: JSON.stringify({ index, tag, text })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       closeDeleteConfirmModal();
@@ -83,7 +163,7 @@ export async function executePendingDelete() {
       return;
     }
 
-    if (State.pendingDeleteTarget.type === 'episode') {
+    if (targetType === 'episode') {
       const { index, date, projectSlug, topic } = State.pendingDeleteTarget;
       const res = await fetch(`${API_BASE}/api/memory/episode/delete`, {
         method: "POST",
@@ -96,7 +176,7 @@ export async function executePendingDelete() {
       return;
     }
 
-    if (State.pendingDeleteTarget.type === 'episodes-clear') {
+    if (targetType === 'episodes-clear') {
       const res = await fetch(`${API_BASE}/api/memory/episodes/clear`, {
         method: "POST"
       });
@@ -106,7 +186,7 @@ export async function executePendingDelete() {
       return;
     }
 
-    if (State.pendingDeleteTarget.type === 'experiment') {
+    if (targetType === 'experiment') {
       const id = State.pendingDeleteTarget.id;
       const res = await fetch(`${API_BASE}/api/experiments`, {
         method: "POST",
@@ -119,22 +199,32 @@ export async function executePendingDelete() {
       return;
     }
 
-    const res = await fetch(`${API_BASE}/api/workspace/delete`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        slug: State.pendingDeleteTarget.slug || undefined,
-        path: State.pendingDeleteTarget.path || undefined,
-        isArchived: State.pendingDeleteTarget.isArchived
-      })
-    });
+    if (targetType === 'file' || targetType === 'project') {
+      const res = await fetch(`${API_BASE}/api/workspace/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: State.pendingDeleteTarget.slug || undefined,
+          path: State.pendingDeleteTarget.path || undefined,
+          isArchived: State.pendingDeleteTarget.isArchived
+        })
+      });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      closeDeleteConfirmModal();
+      closeFileModal();
+      await loadWorkspaceData();
+      return;
+    }
+
     closeDeleteConfirmModal();
-    closeFileModal();
-    loadWorkspaceData();
   } catch (err) {
-    alert(`Error deleting: ${err.message}`);
+    if (errEl) {
+      errEl.textContent = `Error: ${err.message}`;
+      errEl.classList.remove('hidden');
+    } else {
+      console.error('Delete execution error:', err);
+    }
   } finally {
     btn.disabled = false;
     btn.innerHTML = `<i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i><span>Delete</span>`;
@@ -143,7 +233,22 @@ export async function executePendingDelete() {
 }
 
 export function closeDeleteConfirmModal() {
-  document.getElementById('delete-confirm-modal').classList.add('hidden');
+  const modal = document.getElementById('delete-confirm-modal');
+  if (modal) modal.classList.add('hidden');
+  const deleteBtn = document.getElementById('delete-confirm-action-btn');
+  const archiveBtn = document.getElementById('delete-archive-option-btn');
+  const errEl = document.getElementById('delete-modal-error');
+  if (errEl) {
+    errEl.textContent = '';
+    errEl.classList.add('hidden');
+  }
+  if (deleteBtn) {
+    deleteBtn.classList.remove('hidden');
+    deleteBtn.innerHTML = `<i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i><span>Delete</span>`;
+  }
+  if (archiveBtn) archiveBtn.classList.add('hidden');
+  const importInput = document.getElementById('workspace-import-input');
+  if (importInput) importInput.value = '';
   State.pendingDeleteTarget = { type: null, slug: null, path: null, isArchived: false };
 }
 

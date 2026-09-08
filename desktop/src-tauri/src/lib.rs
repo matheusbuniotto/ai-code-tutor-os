@@ -37,14 +37,16 @@ fn spawn_dev_backend() -> std::io::Result<std::process::Child> {
     // `uv run` spawns uvicorn as a *child of itself*, so killing it on quit
     // orphans the actual server. This keeps it to one process we can kill.
     let backend_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../backend");
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let uvicorn_bin = if cfg!(windows) {
         backend_dir.join(".venv/Scripts/uvicorn.exe")
     } else {
         backend_dir.join(".venv/bin/uvicorn")
     };
     std::process::Command::new(uvicorn_bin)
-        .args(["tutor_os.server:app", "--port", BACKEND_PORT])
-        .current_dir(backend_dir)
+        .args(["tutor_os.server:app", "--port", BACKEND_PORT, "--reload"])
+        .current_dir(&backend_dir)
+        .env("TUTOR_OS_ROOT", repo_root)
         .spawn()
 }
 
@@ -63,6 +65,9 @@ fn seed_app_data(app: &tauri::AppHandle, data_dir: &Path) -> std::io::Result<()>
         .expect("bundled seed resources missing");
     copy_dir(&seed_dir.join("frontend"), &data_dir.join("frontend"))?;
     copy_dir(&seed_dir.join(".agents"), &data_dir.join(".agents"))?;
+    if seed_dir.join("workspace").exists() {
+        copy_dir(&seed_dir.join("workspace"), &data_dir.join("workspace"))?;
+    }
     Ok(())
 }
 

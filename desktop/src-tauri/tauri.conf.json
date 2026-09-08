@@ -25,7 +25,8 @@
     ],
     "resources": {
       "../../frontend": "seed/frontend",
-      "../../backend/.agents": "seed/.agents"
+      "../../backend/.agents": "seed/.agents",
+      "../../workspace/_meta_example": "seed/workspace/_meta_example"
     }
   }
 }

@@ -56,8 +56,8 @@ from tutor_os.model import (
     get_runtime_config,
     update_runtime_config,
 )
-from tutor_os.storage import PROJECT_ROOT, WORKSPACE_ROOT, init_db
-from tutor_os.tools.arcs import read_arcs_data, save_arcs_data
+from tutor_os.storage import META_DIR, PROJECT_ROOT, WORKSPACE_ROOT, init_db, write_text
+from tutor_os.tools.arcs import read_arcs_data, save_arcs_data, seed_example_arcs
 from tutor_os.tools.episodes import episodes_clear, episodes_delete, episodes_recent
 from tutor_os.tools.living_library import library_index
 from tutor_os.tools.memory_audit import (
@@ -67,6 +67,7 @@ from tutor_os.tools.memory_audit import (
     link_capability,
     read_evidences,
     short_id,
+    unlink_evidence,
     write_evidences,
 )
 from tutor_os.tools.meta import meta_overview, meta_set_now
@@ -91,10 +92,16 @@ from tutor_os.tools.workspace import (
     workspace_read,
     workspace_write,
 )
+from tutor_os.tools.workspace_reset import (
+    export_workspace,
+    import_workspace_zip,
+    reset_workspace,
+)
 
 logger = logging.getLogger("tutor_os")
 
 UI_DIR = PROJECT_ROOT / "frontend"
+EXPERIMENTS_PATH = META_DIR / "EXPERIMENTS.json"
 
 _AGENT_MODULES = {
     m.__name__.rsplit(".", 1)[-1]: m
@@ -125,6 +132,20 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS", "DELETE"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next: Any) -> Any:
+    """Applies to everything, not just /api/: the desktop app's webview loads the
+    frontend itself over HTTP from this server (see static_ui below), and WKWebView
+    caches JS/HTML on disk across relaunches with no revalidation — so a stale
+    main.js can silently keep running after a code change looks deployed.
+    """
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @app.exception_handler(Exception)
@@ -832,6 +853,32 @@ async def api_workspace_phase(request: Request) -> dict:
     )
 
 
+@app.get("/api/workspace/export")
+async def api_workspace_export() -> Any:
+    data, backup_path = export_workspace()
+    rel_path = str(backup_path.relative_to(WORKSPACE_ROOT.parent))
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{backup_path.name}"',
+            "X-Backup-Path": rel_path,
+            "Access-Control-Expose-Headers": "Content-Disposition, X-Backup-Path",
+        },
+    )
+
+
+@app.post("/api/workspace/import")
+async def api_workspace_import(request: Request) -> Any:
+    data = await request.body()
+    return import_workspace_zip(data)
+
+
+@app.post("/api/workspace/reset")
+async def api_workspace_reset() -> Any:
+    return reset_workspace()
+
+
 # ---------------------------------------------------------------------------
 # 6. Memory & meta
 # ---------------------------------------------------------------------------
@@ -909,6 +956,7 @@ async def api_memory_evidence_delete(request: Request) -> Any:
     evidences = read_evidences()
     evidences = [e for e in evidences if e.get("id") != ev_id]
     write_evidences(evidences)
+    unlink_evidence(ev_id)
     return {"ok": True, "evidences": evidences}
 
 
@@ -932,10 +980,13 @@ async def api_memory_observation_update(request: Request) -> Any:
 @app.post("/api/memory/observation/delete")
 async def api_memory_observation_delete(request: Request) -> Any:
     payload = await request.json()
-    index = payload.get("index")
-    if index is None:
-        raise ValueError("index is required")
-    return observation_delete(int(index))
+    index_val = payload.get("index")
+    index = int(index_val) if index_val is not None else None
+    return observation_delete(
+        index=index,
+        tag=payload.get("tag"),
+        text=payload.get("text"),
+    )
 
 
 @app.post("/api/memory/episode/delete")
@@ -957,10 +1008,51 @@ async def api_memory_episodes_clear() -> Any:
 @app.post("/api/memory/purge")
 async def api_memory_purge() -> Any:
     """Hard reset: clears episodic history, resets observations to the default
-    calibration, and wipes all chat threads/messages/tool events."""
+    calibration, wipes all chat threads/messages/tool events, and clears L2 evidence,
+    experiments, and working memory."""
+    from tutor_os.config.learner_profile import reset_learner_profile
+    from tutor_os.tools.meta import NOW_PATH, _empty_now_content
+    from tutor_os.tools.state import _EMPTY_PROFILE, PROFILE_PATH
+    from tutor_os.tools.working_memory import WORKING_MEMORY_PATH, get_working_memory
+
     episodes_clear()
     observations_reset()
     db.delete_all_threads()
+    write_evidences([])
+
+    # Reset verified status and evidence links across all capability arcs
+    arcs = read_arcs_data()
+    for arc in arcs:
+        for cap in arc.get("capabilities", []):
+            cap["verified"] = False
+            cap["evidence"] = ""
+            cap["evidenceIds"] = []
+            cap["verifiedAt"] = None
+    save_arcs_data(arcs)
+
+    # Reset experiments collection
+    if EXPERIMENTS_PATH.exists():
+        EXPERIMENTS_PATH.write_text("[]", encoding="utf-8")
+
+    # Reset NOW.md focus
+    write_text(NOW_PATH, _empty_now_content())
+
+    # Reset PROFILE.md
+    write_text(PROFILE_PATH, _EMPTY_PROFILE)
+
+    # Reset learner profile (disk and memory)
+    reset_learner_profile()
+
+    # Reset working memory file and reinitialize cleanly
+    if WORKING_MEMORY_PATH.exists():
+        WORKING_MEMORY_PATH.unlink()
+    get_working_memory()
+
+    # Clear gate history
+    gate_history = META_DIR / "GATE_HISTORY.jsonl"
+    if gate_history.exists():
+        gate_history.write_text("", encoding="utf-8")
+
     return {"ok": True}
 
 
@@ -984,8 +1076,6 @@ async def api_meta_now(request: Request) -> dict:
 # ---------------------------------------------------------------------------
 # 8. Utility panels: rescue/library/inbox/experiments
 # ---------------------------------------------------------------------------
-
-EXPERIMENTS_PATH = WORKSPACE_ROOT / "_meta" / "EXPERIMENTS.json"
 
 
 @app.post("/api/rescue")
@@ -1103,6 +1193,12 @@ async def api_arcs_post(request: Request) -> Any:
     return {"ok": True, "arcs": arcs}
 
 
+@app.post("/api/arcs/seed-example")
+async def api_arcs_seed_example() -> Any:
+    """Onboarding wizard opt-in: seeds the example arcs. No-op if arcs already exist."""
+    return seed_example_arcs()
+
+
 @app.post("/api/arc/update")
 async def api_arc_update(request: Request) -> Any:
     payload = await request.json()
@@ -1158,6 +1254,8 @@ async def api_arc_delete(request: Request) -> Any:
         raise ValueError("arcId is required")
     arcs = [a for a in read_arcs_data() if a.get("id") != arc_id]
     save_arcs_data(arcs)
+    evidences = [e for e in read_evidences() if e.get("arcId") != arc_id]
+    write_evidences(evidences)
     return {"ok": True, "arcs": arcs}
 
 

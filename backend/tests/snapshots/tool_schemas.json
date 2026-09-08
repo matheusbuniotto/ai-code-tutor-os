@@ -451,7 +451,7 @@
     "description": "Runs the 3-Gate Leverage Filter for Work or Personal Study/Project.\n\nReturns the structured verdict (GO, DELEGATE_AUTOMATE_ASYNC, POSTPONE_RECORD),\nrationale, and an anti-impostor anchor grounded in concrete evidence when applicable.",
     "parameters": {
       "context": {
-        "description": "Context of the demand: corporate work (Tech Lead) or personal study/lab.",
+        "description": "Context of the demand: corporate work or personal study/lab.",
         "enum": [
           "work",
           "personal_study"
@@ -477,7 +477,7 @@
       },
       "personal_demand_and_no_abandon_trap": {
         "default": false,
-        "description": "Study Gate 4: high/stable demand through 2027-2030, with no history of similar abandonment?",
+        "description": "Study Gate 4: high/stable demand in your field through the coming years, with no history of similar abandonment?",
         "type": "boolean"
       },
       "personal_topology_before_syntax": {
@@ -496,12 +496,12 @@
       },
       "work_career_moat": {
         "default": false,
-        "description": "Work Gate 3: produces a public asset (case study/RFC) with demand through 2027-2030?",
+        "description": "Work Gate 3: produces a public asset (case study/RFC) with demand through the coming years?",
         "type": "boolean"
       },
       "work_high_abstraction": {
         "default": false,
-        "description": "Work Gate 1: AI architecture, data schema, reliability, or evaluation?",
+        "description": "Work Gate 1: high-leverage your field work (architecture, data schema, reliability, or evaluation)?",
         "type": "boolean"
       },
       "work_squad_multiplier": {
@@ -724,6 +724,65 @@
       "project_slug",
       "status"
     ]
+  },
+  "profile_onboarding_status": {
+    "description": "Reports whether the Learner Profile still looks generic (no name/domain set yet).\n\nCall this once at the start of a new thread (alongside meta_overview) to decide\nwhether to ask onboarding questions before diving into the task.",
+    "parameters": {},
+    "required": []
+  },
+  "profile_onboarding_update": {
+    "description": "Saves Learner Profile fields the learner just answered conversationally.\n\nOnly pass fields the learner actually answered \u2014 omit the rest so they're left\nuntouched. This drives the 3-Gate Filter and how agents address the learner.\nFull effect (agent instructions) only lands after the next server restart \u2014\ntell the learner that plainly, don't imply it's instant.",
+    "parameters": {
+      "career_horizon": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Demand horizon for the 3-Gate Filter (e.g. \"2027-2030\"). Optional."
+      },
+      "domain_label": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Field/interest area (e.g. \"Backend & Distributed Systems\", \"Applied ML\")."
+      },
+      "name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Learner's name/nickname."
+      },
+      "work_role": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Career context for the Work 3-Gate Filter (e.g. \"Fintech Tech Lead\"). Optional."
+      }
+    },
+    "required": []
   },
   "rescue_diagnose": {
     "description": "Diagnoses cognitive/operational blockages using the 2E matrix calibrated to the report.\n\nReturns the real neuropsychological cause and the ONE immediate prescribed action.",

@@ -101,7 +101,7 @@ export function renderProjectFileTree(filesList, projectSlug, isArchived) {
 
 export async function loadWorkspaceData() {
   try {
-    const res = await fetch(`${API_BASE}/api/workspace`);
+    const res = await fetch(`${API_BASE}/api/workspace`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
@@ -265,7 +265,7 @@ export async function openWorkspaceFile(slug, filePath, isArchived = false) {
     params.set("path", filePath);
     if (isArchived) params.set("archived", "true");
 
-    const res = await fetch(`${API_BASE}/api/workspace/file?${params.toString()}`);
+    const res = await fetch(`${API_BASE}/api/workspace/file?${params.toString()}`, { cache: 'no-store' });
     const data = await res.json();
 
     State.currentPreviewFile = { slug, path: filePath, content: data.content || "", isArchived };
@@ -278,9 +278,10 @@ export async function openWorkspaceFile(slug, filePath, isArchived = false) {
 
 // Save edited file
 export async function saveCurrentFileContent() {
+  if (!State.currentPreviewFile.path) return;
   const editor = document.getElementById('file-modal-editor');
   const saveStatus = document.getElementById('file-save-status');
-  const newContent = editor.value;
+  const content = editor.value;
 
   try {
     const res = await fetch(`${API_BASE}/api/workspace/write`, {
@@ -289,16 +290,16 @@ export async function saveCurrentFileContent() {
       body: JSON.stringify({
         slug: State.currentPreviewFile.slug,
         path: State.currentPreviewFile.path,
-        content: newContent,
+        content,
         isArchived: State.currentPreviewFile.isArchived
       })
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    State.currentPreviewFile.content = newContent;
+    State.currentPreviewFile.content = content;
     saveStatus.classList.remove('hidden');
     setTimeout(() => saveStatus.classList.add('hidden'), 2500);
-    loadWorkspaceData();
+    await loadWorkspaceData();
   } catch (err) {
     alert(`Error saving file: ${err.message}`);
   }
@@ -343,9 +344,20 @@ export function deleteCurrentFile() {
   promptDeleteFile(State.currentPreviewFile.slug, State.currentPreviewFile.path, State.currentPreviewFile.isArchived);
 }
 
-export async function promptArchiveProject(slug) {
-  if (!confirm(`Mark the project "${slug}" as completed and move it to the completed-archives folder?`)) return;
-  await executeArchive(slug, "archive");
+export function promptArchiveProject(slug) {
+  State.pendingDeleteTarget = { type: 'project', slug, path: null, isArchived: false };
+  document.getElementById('delete-modal-title').textContent = "Archive Project";
+  document.getElementById('delete-modal-desc').textContent = "Move this project to Completed / Archived?";
+  document.getElementById('delete-target-label').textContent = `Project: ${slug}`;
+  document.getElementById('delete-modal-subdesc').textContent = "All files will be preserved. You can restore this project back to active at any time.";
+
+  const archiveBtn = document.getElementById('delete-archive-option-btn');
+  const deleteBtn = document.getElementById('delete-confirm-action-btn');
+  archiveBtn.classList.remove('hidden');
+  deleteBtn.classList.add('hidden');
+
+  document.getElementById('delete-confirm-modal').classList.remove('hidden');
+  lucide.createIcons();
 }
 
 export async function restoreProject(slug) {
@@ -360,7 +372,7 @@ export async function executeArchive(slug, action) {
       body: JSON.stringify({ slug, action })
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    loadWorkspaceData();
+    await loadWorkspaceData();
   } catch (err) {
     alert(`Error ${action === 'archive' ? 'archiving' : 'restoring'}: ${err.message}`);
   }

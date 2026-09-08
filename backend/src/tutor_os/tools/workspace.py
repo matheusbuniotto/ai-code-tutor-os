@@ -154,8 +154,13 @@ def workspace_delete(
         is_archived: target workspace/_archive/ instead of the active workspace.
     """
     if is_archived:
-        base = ARCHIVE_ROOT / (project_slug or "")
-        target = (base / path) if path else base
+        if project_slug:
+            base = safe_path(ARCHIVE_ROOT, project_slug)
+            target = safe_path(base, path) if path else base
+        elif path:
+            target = safe_path(ARCHIVE_ROOT, path)
+        else:
+            raise ValueError("Specify an archived project or file to delete")
     elif project_slug:
         target = _project_path(project_slug, path or "")
     elif path:

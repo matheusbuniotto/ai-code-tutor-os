@@ -63,6 +63,8 @@ export async function loadLearnerProfileConfig() {
     if (data && data.profile) {
       document.getElementById('lp-name').value = data.profile.name || '';
       document.getElementById('lp-work-role').value = data.profile.workRole || '';
+      document.getElementById('lp-domain-label').value = data.profile.domainLabel || '';
+      document.getElementById('lp-career-horizon').value = data.profile.careerHorizon || '';
       document.getElementById('lp-cognitive-tag').value = data.profile.cognitiveTag || '';
       document.getElementById('lp-cognitive-detail').value = data.profile.cognitiveProfileDetail || '';
       document.getElementById('lp-rescue-profile').checked = Boolean(data.profile.hasNeuropsychRescueProfile);
@@ -74,6 +76,8 @@ export async function saveLearnerProfile() {
   const payload = {
     name: document.getElementById('lp-name').value.trim() || 'you',
     workRole: document.getElementById('lp-work-role').value.trim(),
+    domainLabel: document.getElementById('lp-domain-label').value.trim(),
+    careerHorizon: document.getElementById('lp-career-horizon').value.trim(),
     cognitiveTag: document.getElementById('lp-cognitive-tag').value.trim(),
     cognitiveProfileDetail: document.getElementById('lp-cognitive-detail').value,
     hasNeuropsychRescueProfile: document.getElementById('lp-rescue-profile').checked,

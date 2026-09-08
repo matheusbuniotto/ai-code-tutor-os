@@ -28,15 +28,15 @@ INVERTED_PYRAMID_RULES = """## The 4 Phases of the Inverted Pyramid
 THREE_GATE_FILTER = """## 3-Gate Filter (3-Gate Leverage Filter)
 Before starting any project or study task:
 - WORK{{WORK_ROLE}}:
-  * Gate 1 (Architecture): Is it an AI pipeline, data schema, evaluation metric, or reliability work?
+  * Gate 1 (Architecture): Is it high-leverage {{DOMAIN}} work (pipeline/schema, evaluation, or reliability)?
   * Gate 2 (Multiplier): Does it become a playbook, reusable template, or CI/CD guardrail?
-  * Gate 3 (2027-2030 Career): Does it become a public case study or a future high-demand skill?
+  * Gate 3 ({{CAREER_HORIZON}} Career): Does it become a public case study or a future high-demand skill?
   ➔ GO if it passes ≥1 gate. Otherwise: DELEGATE / AUTOMATE / HANDLE ASYNCHRONOUSLY.
 - STUDY / PERSONAL LAB:
   * Gate 1: Does it deepen an existing cluster of interest (not a novelty picked up cold)?
   * Gate 2: Does it fit into one end-to-end tracer bullet in one focused session?
   * Gate 3: Topology and invariants on paper before reading documentation line by line?
-  * Gate 4: Solid technology (2027-2030) with no recurring history of abandonment?
+  * Gate 4: Solid demand in {{DOMAIN}} through {{CAREER_HORIZON}}, with no recurring history of abandonment?
   ➔ GO if it passes ≥3 of the 4 gates. Otherwise: LOG IN INBOX AND DEFER."""
 
 _COGNITIVE_RESCUE_MATRIX_TEXT = """## Cognitive Rescue Matrix (2E Profile Calibrated to the User's Report)
