@@ -16,9 +16,12 @@ _TMP_ROOT = Path(tempfile.mkdtemp(prefix="tutor-os-tests-"))
 os.environ["TUTOR_OS_ROOT"] = str(_TMP_ROOT)
 os.environ.setdefault("OPENAI_API_KEY", "test-key-not-used")
 
+from copy import deepcopy
+
 import pytest
 
-from tutor_os.storage import META_DIR, WORKSPACE_ROOT
+from tutor_os.storage import META_DIR, WORKSPACE_ROOT, write_json
+from tutor_os.tools.arcs import ARCS_FILE, EXAMPLE_STARTER_ARCS
 
 
 @pytest.fixture
@@ -33,6 +36,7 @@ def workspace(tmp_path_factory: pytest.TempPathFactory):
         shutil.rmtree(WORKSPACE_ROOT)
     WORKSPACE_ROOT.mkdir(parents=True)
     META_DIR.mkdir(parents=True)
+    write_json(ARCS_FILE, deepcopy(EXAMPLE_STARTER_ARCS))
     yield WORKSPACE_ROOT
 
 

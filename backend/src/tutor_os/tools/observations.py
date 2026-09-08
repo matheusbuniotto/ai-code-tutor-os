@@ -77,11 +77,27 @@ def observation_update(index: int, tag: str, text: str) -> dict:
     return {"ok": True, "observations": observations}
 
 
-def observation_delete(index: int) -> dict:
-    """Deletes an observation by its position in the list."""
+def observation_delete(
+    index: int | None = None,
+    tag: str | None = None,
+    text: str | None = None,
+) -> dict:
+    """Deletes an observation by its position in the list or by matching tag/text."""
     observations = read_observations()
-    _check_index(observations, index)
-    del observations[index]
+    deleted = False
+    if index is not None and 0 <= index < len(observations):
+        del observations[index]
+        deleted = True
+    elif tag or text:
+        for i, obs in enumerate(observations):
+            tag_match = not tag or obs.get("tag") == tag
+            text_match = not text or obs.get("text") == text
+            if tag_match and text_match:
+                del observations[i]
+                deleted = True
+                break
+    if not deleted:
+        _check_index(observations, index if index is not None else -1)
     write_observations(observations)
     return {"ok": True, "observations": observations}
 

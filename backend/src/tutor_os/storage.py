@@ -24,17 +24,6 @@ META_EXAMPLE_DIR = WORKSPACE_ROOT / "_meta_example"
 DB_PATH = PROJECT_ROOT / "tutor-os-py.db"
 
 
-def seed_meta_dir() -> None:
-    """First run on a fresh clone: workspace/_meta is gitignored (personal
-    progress data), so seed it from the committed onboarding template.
-    """
-    if not META_DIR.exists() and META_EXAMPLE_DIR.exists():
-        shutil.copytree(META_EXAMPLE_DIR, META_DIR)
-
-
-seed_meta_dir()
-
-
 def safe_path(base: Path, rel_path: str = "") -> Path:
     """Resolves `rel_path` under `base`, refusing anything that escapes it."""
     root = base.resolve()
@@ -52,6 +41,57 @@ def write_text(path: Path, content: str) -> None:
 
 def read_text(path: Path, default: str = "") -> str:
     return path.read_text(encoding="utf-8") if path.exists() else default
+
+
+def _copy_missing(src_dir: Path, dest_dir: Path) -> None:
+    for item in src_dir.iterdir():
+        dest = dest_dir / item.name
+        if dest.exists():
+            continue
+        if item.is_dir():
+            shutil.copytree(item, dest)
+        else:
+            shutil.copy2(item, dest)
+
+
+def seed_meta_dir() -> None:
+    """First run on a fresh clone or after workspace reset: ensures workspace/_meta
+    is populated with essential meta-learning files, seeding from _meta_example if available.
+    """
+    if META_EXAMPLE_DIR.exists():
+        if not META_DIR.exists():
+            shutil.copytree(META_EXAMPLE_DIR, META_DIR)
+        else:
+            _copy_missing(META_EXAMPLE_DIR, META_DIR)
+
+    META_DIR.mkdir(parents=True, exist_ok=True)
+    (META_DIR / "traces").mkdir(parents=True, exist_ok=True)
+
+    defaults: dict[str, str] = {
+        "ARCS.json": "[]",
+        "EVIDENCES.json": "[]",
+        "EXPERIMENTS.json": "[]",
+        "EPISODES.jsonl": "",
+        "GATE_HISTORY.jsonl": "",
+        "LIBRARY.md": "# LIVING ARCHITECTURE LIBRARY\n\n(no notes yet)\n",
+        "NOW.md": (
+            "# NOW — Active Focus\n\n"
+            "**Project:** none\n"
+            "**Mission:** (no active mission)\n"
+            "**Phase:** 1/4\n\n"
+            "## Observable Objective\n"
+            "No active project right now\n\n"
+            "## Next Action (< 2min)\n"
+            "Define a new mission when there's demand for one\n"
+        ),
+    }
+    for filename, content in defaults.items():
+        path = META_DIR / filename
+        if not path.exists():
+            write_text(path, content)
+
+
+seed_meta_dir()
 
 
 def read_json(path: Path, default: Any = None) -> Any:

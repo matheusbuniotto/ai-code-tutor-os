@@ -22,6 +22,12 @@ class LearnerProfile:
     cognitive_profile_detail: str = ""
     # Career-context label for the 3-Gate Filter (e.g. "Fintech Tech Lead"). Empty = omitted.
     work_role: str = ""
+    # Field/interest area driving the 3-Gate Filter and skill-arc wording (e.g. "Backend &
+    # Distributed Systems", "Applied ML", "Frontend Engineering"). Empty = generic "your field".
+    domain_label: str = ""
+    # Horizon used by the 3-Gate Filter's career/demand gates (e.g. "2027-2030"). Empty = generic
+    # "the coming years".
+    career_horizon: str = ""
     # Enables the Cognitive Rescue Matrix, the CAS protocol and the detail block above — only
     # makes sense backed by a real neuropsych report.
     has_neuropsych_rescue_profile: bool = False
@@ -35,6 +41,8 @@ _FIELD_ALIASES = {
     "cognitiveTag": "cognitive_tag",
     "cognitiveProfileDetail": "cognitive_profile_detail",
     "workRole": "work_role",
+    "domainLabel": "domain_label",
+    "careerHorizon": "career_horizon",
     "hasNeuropsychRescueProfile": "has_neuropsych_rescue_profile",
 }
 
@@ -60,18 +68,36 @@ def read_learner_profile() -> LearnerProfile:
 
 
 def write_learner_profile(updates: dict) -> LearnerProfile:
-    """Writes the profile (merged over the current one).
-
-    Already-built agent instructions only pick up the change after a server
-    restart — they're strings frozen at boot, same as the Node backend.
-    """
+    """Writes the profile (merged over the current one) and updates active runtime memory."""
+    global learner_profile
     current = _load_learner_profile()
     next_profile = replace(current, **_normalize_keys(updates))
     PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
     PROFILE_PATH.write_text(
         json.dumps(asdict(next_profile), indent=2, ensure_ascii=False), encoding="utf-8"
     )
+    learner_profile = next_profile
     return next_profile
+
+
+def reload_learner_profile() -> LearnerProfile:
+    """Reloads the profile from disk and updates runtime state."""
+    global learner_profile
+    learner_profile = _load_learner_profile()
+    return learner_profile
+
+
+def reset_learner_profile() -> LearnerProfile:
+    """Resets the profile to blank default state on disk and in runtime memory."""
+    global learner_profile
+    if PROFILE_PATH.exists():
+        PROFILE_PATH.unlink()
+    learner_profile = DEFAULT_PROFILE
+    PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PROFILE_PATH.write_text(
+        json.dumps(asdict(DEFAULT_PROFILE), indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    return learner_profile
 
 
 learner_profile: LearnerProfile = _load_learner_profile()
@@ -80,6 +106,8 @@ _TOKEN_VALUES = {
     "{{LEARNER_NAME}}": lambda p: p.name,
     "{{COGNITIVE_TAG}}": lambda p: f" ({p.cognitive_tag})" if p.cognitive_tag else "",
     "{{WORK_ROLE}}": lambda p: f" ({p.work_role})" if p.work_role else "",
+    "{{DOMAIN}}": lambda p: p.domain_label or "your field",
+    "{{CAREER_HORIZON}}": lambda p: p.career_horizon or "the coming years",
 }
 
 

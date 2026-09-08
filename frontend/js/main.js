@@ -20,6 +20,8 @@ import { handleSidebarPaperSearch } from './research.js';
 import { closeRescueModal, openRescueModal } from './rescue.js';
 import { closeSettingsModal, openSettingsModal } from './settings.js';
 import { closeQuickInboxModal, openQuickInboxModal } from './inbox.js';
+import { closeOnboarding, maybeShowOnboarding } from './onboarding.js';
+import './workspace-reset.js';
 
 lucide.createIcons();
 
@@ -49,6 +51,7 @@ window.addEventListener('keydown', (e) => {
     closeQuickInboxModal();
     closeAddObsModal();
     closePurgeMemoryModal();
+    closeOnboarding();
   }
 });
 
@@ -76,3 +79,4 @@ setSkin(savedSkin);
 loadThreadsList().then(() => switchThread(State.activeThreadId));
 loadWorkspaceData();
 handleSidebarPaperSearch();
+maybeShowOnboarding();

@@ -76,33 +76,36 @@ async def arxiv_search(
 
         papers = []
         for p in results:
-            abstract = _reconstruct_abstract(p.get("abstract_inverted_index")) or _clean_text(
-                p.get("display_name")
-            )
-            authors = [
-                _clean_text((a.get("author") or {}).get("display_name"))
-                for a in p.get("authorships") or []
-            ]
-            authors = [a for a in authors if a]
-            title = _clean_text(p.get("display_name"))
-            if not title:
+            try:
+                abstract = _reconstruct_abstract(
+                    p.get("abstract_inverted_index")
+                ) or _clean_text(p.get("display_name"))
+                authors = [
+                    _clean_text((a.get("author") or {}).get("display_name"))
+                    for a in p.get("authorships") or []
+                ]
+                authors = [a for a in authors if a]
+                title = _clean_text(p.get("display_name"))
+                if not title:
+                    continue
+                primary_location = p.get("primary_location") or {}
+                source = primary_location.get("source") or {}
+                papers.append({
+                    "title": title,
+                    "authors": authors or ["Academic Research Group"],
+                    "summary": (abstract[:380] + "...") if len(abstract) > 380 else abstract,
+                    "published": str(p.get("publication_year") or ""),
+                    "url": p.get("doi")
+                    or primary_location.get("landing_page_url")
+                    or p.get("id")
+                    or "",
+                    "citations": p.get("cited_by_count") or 0,
+                    "venue": _clean_text(source.get("display_name") or "Academic Index"),
+                })
+            except Exception:
                 continue
-            papers.append({
-                "title": title,
-                "authors": authors or ["Academic Research Group"],
-                "summary": (abstract[:380] + "...") if len(abstract) > 380 else abstract,
-                "published": str(p.get("publication_year") or ""),
-                "url": p.get("doi")
-                or (p.get("primary_location") or {}).get("landing_page_url")
-                or p.get("id")
-                or "",
-                "citations": p.get("cited_by_count") or 0,
-                "venue": _clean_text(
-                    (p.get("primary_location") or {}).get("source", {}).get("display_name")
-                    or "Academic Index"
-                ),
-            })
 
+        papers = papers[:max_results]
         if papers:
             _paper_cache[cache_key] = (papers, total, time.time())
             return {"papers": papers, "totalMatches": total}
@@ -137,8 +140,10 @@ async def web_search(
     async with httpx.AsyncClient(timeout=8.0, headers=_HEADERS) as client:
         if source in ("all", "web", "stackoverflow"):
             try:
+                import re as _re
+
                 resp = await client.get(
-                    "https://api.stackexchange.com/2.3/search/advanced",
+                    "https://api.stackexchange.com/2.3/search/excerpts",
                     params={
                         "order": "desc",
                         "sort": "relevance",
@@ -149,9 +154,10 @@ async def web_search(
                 )
                 resp.raise_for_status()
                 for item in resp.json().get("items") or []:
+                    excerpt = _clean_text(_re.sub(r"<[^>]+>", "", item.get("excerpt") or ""))
                     aggregated.append({
                         "title": _clean_text(item.get("title")),
-                        "snippet": f"Score: {item.get('score')} | Tags: {', '.join(item.get('tags') or [])} | Technical answer about behavior and implementation.",
+                        "snippet": excerpt or f"Score: {item.get('score')}",
                         "url": item.get("link")
                         or f"https://stackoverflow.com/q/{item.get('question_id')}",
                         "source": "StackOverflow",
@@ -224,9 +230,18 @@ async def web_search(
                 resp.raise_for_status()
                 for hit in resp.json().get("hits") or []:
                     if hit.get("title"):
+                        import re as _re
+
+                        story_text = _clean_text(
+                            _re.sub(r"<[^>]+>", "", hit.get("story_text") or "")
+                        )
+                        snippet = story_text or (
+                            f"{hit.get('points') or 0} points, "
+                            f"{hit.get('num_comments') or 0} comments on Hacker News."
+                        )
                         aggregated.append({
                             "title": _clean_text(hit["title"]),
-                            "snippet": f"Hacker News Points: {hit.get('points') or 0} | Comments: {hit.get('num_comments') or 0} | Engineering article and empirical discussion.",
+                            "snippet": snippet,
                             "url": hit.get("url")
                             or f"https://news.ycombinator.com/item?id={hit.get('objectID')}",
                             "source": "HackerNews",

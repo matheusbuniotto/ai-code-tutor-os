@@ -50,8 +50,23 @@ export function quickPrompt(text) {
   document.getElementById('chat-form').dispatchEvent(new Event('submit'));
 }
 
+export async function copyToClipboard(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied! ✓';
+      setTimeout(() => { btn.textContent = orig; }, 1800);
+    }
+  } catch (err) {
+    console.error('Failed to copy to clipboard', err);
+    prompt('Copy to clipboard:', text);
+  }
+}
+
 // --- inline-handler surface (onclick/oninput/onkeydown="..." targets) ---
 window.scrollToBottom = scrollToBottom;
 window.autoResizeTextarea = autoResizeTextarea;
 window.handleInputKeydown = handleInputKeydown;
 window.quickPrompt = quickPrompt;
+window.copyToClipboard = copyToClipboard;

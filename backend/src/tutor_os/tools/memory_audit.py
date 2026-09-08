@@ -69,11 +69,12 @@ def _evidence_for(
 
 
 def _episode_to_trace(index: int, ep: Episode) -> dict:
+    ep_date = (ep.get("date") or "today").replace("-", "")
     return {
-        "id": f"ep-{ep['date'].replace('-', '')}-{index + 1:02d}",
+        "id": f"ep-{ep_date}-{index + 1:02d}",
         "index": index,
         "type": "session",
-        "timestamp": ep["date"],
+        "timestamp": ep.get("date") or "Today",
         "projectSlug": ep.get("projectSlug"),
         "topic": ep.get("topic"),
         "summary": (
@@ -144,6 +145,25 @@ def link_capability(capability_id: str, claim: str, evidence_id: str) -> None:
             cap["verifiedAt"] = datetime.now(UTC).isoformat()
             save_arcs_data(arcs)
             return
+
+
+def unlink_evidence(evidence_id: str) -> None:
+    """Removes evidence_id from all capabilities in ARCS.json, updating verified status."""
+    arcs = read_arcs_data()
+    changed = False
+    for arc in arcs:
+        for cap in arc.get("capabilities", []):
+            ev_ids = cap.get("evidenceIds") or []
+            if evidence_id in ev_ids:
+                changed = True
+                ev_ids = [eid for eid in ev_ids if eid != evidence_id]
+                cap["evidenceIds"] = ev_ids
+                if not ev_ids:
+                    cap["verified"] = False
+                    cap["evidence"] = ""
+                    cap["verifiedAt"] = None
+    if changed:
+        save_arcs_data(arcs)
 
 
 def evidence_record(

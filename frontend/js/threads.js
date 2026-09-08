@@ -120,31 +120,32 @@ export async function copyCurrentThreadTranscript() {
   }
 }
 
-export async function promptClearActiveThread() {
+export function promptClearActiveThread() {
   if (!State.activeThreadId) return;
-  if (!confirm('Clear all messages in this session while keeping the active topic?')) return;
-  try {
-    const res = await fetch(`${API_BASE}/api/thread/clear`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ threadId: State.activeThreadId }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    await switchThread(State.activeThreadId);
-    await loadThreadsList();
-  } catch (err) {
-    alert(`Error clearing conversation: ${err.message}`);
-  }
+  const currentThread = (State.cachedThreads || []).find(t => t.id === State.activeThreadId);
+  const title = currentThread?.title || State.activeThreadId;
+  State.pendingDeleteTarget = { type: 'thread-clear', threadId: State.activeThreadId, title };
+  document.getElementById('delete-modal-title').textContent = "Clear Session Messages";
+  document.getElementById('delete-modal-desc').textContent = "Are you sure you want to clear all messages in this session?";
+  document.getElementById('delete-target-label').textContent = `Session: "${title}"`;
+  document.getElementById('delete-modal-subdesc').textContent = "The topic and session record will remain active, but all message history will be cleared.";
+  document.getElementById('delete-archive-option-btn').classList.add('hidden');
+  const actionBtn = document.getElementById('delete-confirm-action-btn');
+  actionBtn.classList.remove('hidden');
+  actionBtn.innerHTML = `<i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i><span>Clear Messages</span>`;
+  document.getElementById('delete-confirm-modal').classList.remove('hidden');
+  lucide.createIcons();
 }
 
 export async function loadThreadsList() {
   const container = document.getElementById('threads-list');
   const pillsContainer = document.getElementById('agent-filter-pills');
   try {
-    const res = await fetch(`${API_BASE}/api/threads`);
+    const res = await fetch(`${API_BASE}/api/threads`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     let threads = data.threads || [];
+    State.cachedThreads = threads;
 
     if (threads.length === 0) {
       container.innerHTML = `<div class="text-[11px] text-zinc-500 p-2">No sessions recorded.</div>`;
@@ -300,7 +301,7 @@ export async function switchThread(threadId) {
   lucide.createIcons();
 
   try {
-    const res = await fetch(`${API_BASE}/api/thread/messages?threadId=${encodeURIComponent(threadId)}`);
+    const res = await fetch(`${API_BASE}/api/thread/messages?threadId=${encodeURIComponent(threadId)}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const messages = data.messages || [];
