@@ -1,5 +1,16 @@
 # Tutor OS
 
+<p align="center">
+  <img src="assets/demo/ai_code_tutor_os_showcase.gif" alt="Tutor OS Showcase" width="100%" />
+</p>
+
+<p align="center">
+  <a href="#%EF%B8%8F-architecture-overview"><img src="https://img.shields.io/badge/Architecture-Pydantic--AI%202.0-8A2BE2" alt="Pydantic AI" /></a>
+  <a href="#5-native-desktop-shell-tauri-2"><img src="https://img.shields.io/badge/Desktop-Tauri%202%20Rust-brightgreen" alt="Tauri 2" /></a>
+  <a href="#3-multi-layer-memory-on-disk-no-vector-database---inspired-by-hkuds-university-work"><img src="https://img.shields.io/badge/Memory-Disk%20Hierarchical%20(No%20VectorDB)-blue" alt="Memory" /></a>
+  <a href="#%EF%B8%8F-capability-arcs--learning-road"><img src="https://img.shields.io/badge/Verification-L2%20Reproducible%20Evidence-orange" alt="Evidence" /></a>
+</p>
+
 I learn by building. Reading documentation, watching conference talks, or asking an AI to explain a concept gives a quick feeling of understanding, but it rarely sticks. A week later, when I have to design around real constraints, the intuition is gone.
 
 The only way technical judgment actually develops is through direct contact with the problem: mapping invariants on paper, writing the minimal code that runs, breaking it at the edges on purpose, and observing how it fails.
