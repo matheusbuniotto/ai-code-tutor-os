@@ -18,3 +18,5 @@ desktop/src-tauri/gen/
 workspace/_meta/
 workspace/*/
 !workspace/_meta_example/
+.env
+backend/.env
